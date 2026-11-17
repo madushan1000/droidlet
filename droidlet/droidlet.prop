@@ -1,0 +1,47 @@
+# System properties for the droidlet host runtime.
+#
+# Installed to $PREFIX/etc/droidlet.props and merged with HOST_PROPERTIES by
+# droidlet/droidlet/main.cpp.  HOST_PROPERTIES takes precedence, so individual
+# runs can override any value here.
+#
+# The framework is built from an API-37 platform, so report that to apps that
+# branch on Build.VERSION.  ro.build.version.sdk is read by
+# Build.VERSION.SDK_INT; without it the value is 0, which makes Compose select
+# legacy software-rendering paths and makes apps that parse
+# Build.VERSION.SDK crash on a null/"unknown" string.
+ro.build.version.sdk=37
+ro.build.version.sdk_full=37.0
+ro.build.version.release=17
+ro.build.version.release_or_codename=17
+ro.build.version.codename=REL
+ro.build.version.incremental=droidlet
+ro.build.version.security_patch=2026-01-01
+ro.build.version.preview_sdk=0
+ro.build.version.known_codenames=Base,Base11,Cupcake,Donut,Eclair,Eclair01,EclairMr1,Froyo,Gingerbread,GingerbreadMr1,Honeycomb,HoneycombMr1,HoneycombMr2,IceCreamSandwich,IceCreamSandwichMr1,JellyBean,JellyBeanMr1,JellyBeanMr2,Kitkat,KitkatWatch,Lollipop,LollipopMr1,M,N,NMr1,O,OMr1,P,Q,R,S,Sv2,Tiramisu,UpsideDownCake,VanillaIceCream,Baklava,CinnamonBun
+ro.build.version.all_codenames=REL
+
+ro.build.id=DRD1.260101.001
+ro.build.type=userdebug
+ro.build.tags=test-keys
+ro.build.date=Thu Jan 01 00:00:00 UTC 2026
+ro.build.date.utc=1767225600
+ro.build.flavor=droidlet-x86_64
+
+ro.product.brand=droidlet
+ro.product.name=droidlet
+ro.product.device=droidlet
+ro.product.model=droidlet
+ro.product.manufacturer=droidlet
+ro.product.cpu.abi=x86_64
+ro.product.cpu.abilist=x86_64
+ro.product.cpu.abilist32=
+ro.product.cpu.abilist64=x86_64
+
+ro.product.first_api_level=37
+ro.dalvik.vm.native.bridge=0
+
+# Host heap defaults.  AndroidRuntime falls back to a 16 MB heap when these
+# properties are absent, which is too small for Compose and other modern apps.
+dalvik.vm.heapstartsize=8m
+dalvik.vm.heapgrowthlimit=256m
+dalvik.vm.heapsize=512m

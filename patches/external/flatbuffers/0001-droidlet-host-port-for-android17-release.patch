@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:49 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ java/src/main/java/com/google/flatbuffers/Constants.java | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/java/src/main/java/com/google/flatbuffers/Constants.java b/java/src/main/java/com/google/flatbuffers/Constants.java
+index 6446214..8d952c6 100644
+--- a/java/src/main/java/com/google/flatbuffers/Constants.java
++++ b/java/src/main/java/com/google/flatbuffers/Constants.java
+@@ -47,6 +47,7 @@ public class Constants {
+     the version here and in the code generator on every possible
+     incompatible change */
+     public static void FLATBUFFERS_25_1_24() {}
++    public static void FLATBUFFERS_2_0_8() {}
+ }
+ 
+ /// @endcond

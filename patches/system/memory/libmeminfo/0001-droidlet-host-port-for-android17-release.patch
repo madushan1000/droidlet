@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:51 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ include/meminfo/meminfo.h    | 1 +
+ include/meminfo/sysmeminfo.h | 1 +
+ meminfo_private.h            | 3 ++-
+ 3 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/include/meminfo/meminfo.h b/include/meminfo/meminfo.h
+index 199f7c8..f80244f 100644
+--- a/include/meminfo/meminfo.h
++++ b/include/meminfo/meminfo.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <cstdint>
+ #include <string.h>
+ #include <sys/types.h>
+ #include <unistd.h>
+diff --git a/include/meminfo/sysmeminfo.h b/include/meminfo/sysmeminfo.h
+index 0c2c754..6594bdd 100644
+--- a/include/meminfo/sysmeminfo.h
++++ b/include/meminfo/sysmeminfo.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <optional>
+ #include <sys/types.h>
+ 
+ #include <array>
+diff --git a/meminfo_private.h b/meminfo_private.h
+index 248c4e8..3d959d1 100644
+--- a/meminfo_private.h
++++ b/meminfo_private.h
+@@ -16,6 +16,7 @@
+ 
+ #pragma once
+ 
++#include <cstdint>
+ #include <sys/types.h>
+ #include <unistd.h>
+ 
+@@ -45,4 +46,4 @@ bool ReadDmabufHeapTotalExportedKb(uint64_t* size, const std::string& dma_heap_r
+                                    const std::string& dmabuf_sysfs_stats_path);
+ 
+ }  // namespace meminfo
+-}  // namespace android
+\ No newline at end of file
++}  // namespace android

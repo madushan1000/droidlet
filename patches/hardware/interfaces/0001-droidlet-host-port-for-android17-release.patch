@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ .../hardware/graphics/mapper/utils/IMapperMetadataTypes.h       | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/graphics/mapper/stable-c/implutils/include/android/hardware/graphics/mapper/utils/IMapperMetadataTypes.h b/graphics/mapper/stable-c/implutils/include/android/hardware/graphics/mapper/utils/IMapperMetadataTypes.h
+index 399c761..e434469 100644
+--- a/graphics/mapper/stable-c/implutils/include/android/hardware/graphics/mapper/utils/IMapperMetadataTypes.h
++++ b/graphics/mapper/stable-c/implutils/include/android/hardware/graphics/mapper/utils/IMapperMetadataTypes.h
+@@ -626,4 +626,4 @@ AIMapper_Error applyStandardMetadata(StandardMetadataType type, const void* _Non
+ 
+ #endif
+ 
+-}  // namespace android::hardware::graphics::mapper
+\ No newline at end of file
++}  // namespace android::hardware::graphics::mapper

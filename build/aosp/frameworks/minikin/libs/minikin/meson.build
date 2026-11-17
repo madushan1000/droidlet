@@ -1,0 +1,56 @@
+libminikin_includes = include_directories('.', '../../include')
+
+libminikin = shared_library(
+  'minikin',
+  [
+    'BidiUtils.cpp',
+    'CmapCoverage.cpp',
+    'Emoji.cpp',
+    'Font.cpp',
+    'FontCollection.cpp',
+    'FontFakery.cpp',
+    'FontFamily.cpp',
+    'FontFeatureUtils.cpp',
+    'FontFileParser.cpp',
+    'FontUtils.cpp',
+    'GraphemeBreak.cpp',
+    'GreedyLineBreaker.cpp',
+    'Hyphenator.cpp',
+    'HyphenatorMap.cpp',
+    'Layout.cpp',
+    'LayoutCore.cpp',
+    'LayoutUtils.cpp',
+    'LineBreaker.cpp',
+    'LineBreakerUtil.cpp',
+    'Locale.cpp',
+    'LocaleListCache.cpp',
+    'MeasuredText.cpp',
+    'Measurement.cpp',
+    'MinikinFontFactory.cpp',
+    'MinikinInternal.cpp',
+    'OptimalLineBreaker.cpp',
+    'ScriptUtils.cpp',
+    'SparseBitSet.cpp',
+    'SystemFonts.cpp',
+    'U16StringPiece.cpp',
+    'WordBreaker.cpp',
+    #android_text_flags_cpp
+  ],
+  include_directories: libminikin_includes,
+  cpp_args: ['-std=c++20'],
+  dependencies: [
+    libbase_dep,
+    libutils_dep,
+    libcutils_dep,
+    liblog_dep,
+    android_text_flags_cpp_dep,
+    dependency('harfbuzz'),
+    dependency('icu-i18n'),
+  ],
+  install: true,
+)
+
+libminikin_dep = declare_dependency(
+  include_directories: libminikin_includes,
+  link_with: libminikin,
+)

@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ include/android-base/result.h | 4 ++--
+ logging.cpp                   | 6 ++++--
+ properties.cpp                | 2 ++
+ 3 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/include/android-base/result.h b/include/android-base/result.h
+index 998b3b3..060ea48 100644
+--- a/include/android-base/result.h
++++ b/include/android-base/result.h
+@@ -412,14 +412,14 @@ __attribute__((noinline)) ResultError<Errno> MakeResultErrorWithCode(std::string
+ 
+ template <typename... Args>
+ inline ResultError<Errno> ErrorfImpl(fmt::format_string<Args...> fmt, const Args&... args) {
+-  return ResultError(fmt::vformat(fmt.get(), fmt::make_format_args(args...)),
++  return ResultError(fmt::vformat(fmt::string_view(fmt), fmt::make_format_args(args...)),
+                      ErrorCode(Errno{}, args...));
+ }
+ 
+ template <typename... Args>
+ inline ResultError<Errno> ErrnoErrorfImpl(fmt::format_string<Args...> fmt, const Args&... args) {
+   Errno code{errno};
+-  return MakeResultErrorWithCode(fmt::vformat(fmt.get(), fmt::make_format_args(args...)), code);
++  return MakeResultErrorWithCode(fmt::vformat(fmt::string_view(fmt), fmt::make_format_args(args...)), code);
+ }
+ 
+ #define Errorf(fmt, ...) android::base::ErrorfImpl(FMT_STRING(fmt), ##__VA_ARGS__)
+diff --git a/logging.cpp b/logging.cpp
+index 9204c0c..655d9b4 100644
+--- a/logging.cpp
++++ b/logging.cpp
+@@ -370,8 +370,10 @@ void InitLogging(char* argv[], LogFunction&& logger, AbortFunction&& aborter) {
+           continue;
+       }
+     }
+-    LOG(FATAL) << "unsupported '" << spec << "' in ANDROID_LOG_TAGS (" << tags
+-               << ")";
++    // Tag-specific filters (for example "ActivityManager:I *:S") are handled
++    // by liblog.  Do not abort host processes that use the standard logcat
++    // syntax.
++    continue;
+   }
+ }
+ 
+diff --git a/properties.cpp b/properties.cpp
+index dd798b3..48bd123 100644
+--- a/properties.cpp
++++ b/properties.cpp
+@@ -25,6 +25,8 @@
+ #include <limits>
+ #include <set>
+ #include <string>
++#include <cstdlib>
++#include <cstring>
+ 
+ #include <android-base/parsebool.h>
+ #include <android-base/parseint.h>

@@ -1,0 +1,214 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ include/minikin/Buffer.h         |  1 +
+ include/minikin/PackedVector.h   |  2 +
+ include/minikin/SystemFonts.h    |  1 +
+ include/minikin/U16StringPiece.h |  1 +
+ libs/minikin/Hyphenator.cpp      | 74 ++++++++++++++++----------------
+ libs/minikin/LayoutCore.cpp      |  1 +
+ libs/minikin/LayoutUtils.cpp     |  1 +
+ libs/minikin/Locale.h            |  1 +
+ libs/minikin/StringPiece.h       |  1 +
+ 9 files changed, 46 insertions(+), 37 deletions(-)
+
+diff --git a/include/minikin/Buffer.h b/include/minikin/Buffer.h
+index 403a9ce..56c698d 100644
+--- a/include/minikin/Buffer.h
++++ b/include/minikin/Buffer.h
+@@ -17,6 +17,7 @@
+ #ifndef MINIKIN_BUFFER_H
+ #define MINIKIN_BUFFER_H
+ 
++#include <cstdint>
+ #include <cstring>
+ #include <string_view>
+ #include <type_traits>
+diff --git a/include/minikin/PackedVector.h b/include/minikin/PackedVector.h
+index 9d6dafd..712bb78 100644
+--- a/include/minikin/PackedVector.h
++++ b/include/minikin/PackedVector.h
+@@ -17,6 +17,8 @@
+ #ifndef MINIKIN_PACKED_VECTOR_H
+ #define MINIKIN_PACKED_VECTOR_H
+ 
++
++#include <cstring>
+ #include <log/log.h>
+ 
+ #include <type_traits>
+diff --git a/include/minikin/SystemFonts.h b/include/minikin/SystemFonts.h
+index 518eb10..7558f69 100644
+--- a/include/minikin/SystemFonts.h
++++ b/include/minikin/SystemFonts.h
+@@ -17,6 +17,7 @@
+ #ifndef MINIKIN_SYSTEM_FONTS_H
+ #define MINIKIN_SYSTEM_FONTS_H
+ 
++#include <optional>
+ #include <functional>
+ #include <map>
+ #include <memory>
+diff --git a/include/minikin/U16StringPiece.h b/include/minikin/U16StringPiece.h
+index d9c5c3d..5e73458 100644
+--- a/include/minikin/U16StringPiece.h
++++ b/include/minikin/U16StringPiece.h
+@@ -17,6 +17,7 @@
+ #ifndef MINIKIN_U16STRING_PIECE_H
+ #define MINIKIN_U16STRING_PIECE_H
+ 
++#include <cstdint>
+ #include <vector>
+ 
+ #include "minikin/Range.h"
+diff --git a/libs/minikin/Hyphenator.cpp b/libs/minikin/Hyphenator.cpp
+index d9dd348..cd93447 100644
+--- a/libs/minikin/Hyphenator.cpp
++++ b/libs/minikin/Hyphenator.cpp
+@@ -27,7 +27,7 @@
+ #include "FeatureFlags.h"
+ #include "MinikinInternal.h"
+ #include "minikin/Characters.h"
+-#include "minikin_cxx_bridge.rs.h"
++//#include "minikin_cxx_bridge.rs.h"
+ 
+ namespace minikin {
+ 
+@@ -99,50 +99,50 @@ struct Header {
+     }
+ };
+ 
+-class HyphenatorRust : public Hyphenator {
+-public:
+-    HyphenatorRust(const uint8_t* patternData, size_t dataSize, size_t minPrefix, size_t minSuffix,
+-                   const std::string& locale)
+-            : mHyphenator(rust::load_hyphenator(::rust::cxxbridge1::Slice(patternData, dataSize),
+-                                                minPrefix, minSuffix, locale)) {}
+-
+-    HyphenatorRust(const std::string& path, size_t minPrefix, size_t minSuffix,
+-                   const std::string& locale)
+-            : mHyphenator(rust::load_hyphenator_from_path(path.c_str(), minPrefix, minSuffix,
+-                                                          locale)) {}
+-
+-    virtual void hyphenate(const U16StringPiece& word, HyphenationType* out) const override {
+-        static_assert(sizeof(HyphenationType) == sizeof(uint8_t),
+-                      "HyphnationType must be uint8_t.");
+-        rust::hyphenate(*mHyphenator, ::rust::cxxbridge1::Slice(word.data(), word.size()),
+-                        ::rust::cxxbridge1::Slice(reinterpret_cast<uint8_t*>(out), word.size()));
+-    }
+-
+-    bool ensure_initialized() const override { return rust::ensure_initialized(*mHyphenator); }
+-
+-private:
+-    ::rust::Box<rust::Hyphenator> mHyphenator;
+-};
++//class HyphenatorRust : public Hyphenator {
++//public:
++//    HyphenatorRust(const uint8_t* patternData, size_t dataSize, size_t minPrefix, size_t minSuffix,
++//                   const std::string& locale)
++//            : mHyphenator(rust::load_hyphenator(::rust::cxxbridge1::Slice(patternData, dataSize),
++//                                                minPrefix, minSuffix, locale)) {}
++//
++//    HyphenatorRust(const std::string& path, size_t minPrefix, size_t minSuffix,
++//                   const std::string& locale)
++//            : mHyphenator(rust::load_hyphenator_from_path(path.c_str(), minPrefix, minSuffix,
++//                                                          locale)) {}
++//
++//    virtual void hyphenate(const U16StringPiece& word, HyphenationType* out) const override {
++//        static_assert(sizeof(HyphenationType) == sizeof(uint8_t),
++//                      "HyphnationType must be uint8_t.");
++//        rust::hyphenate(*mHyphenator, ::rust::cxxbridge1::Slice(word.data(), word.size()),
++//                        ::rust::cxxbridge1::Slice(reinterpret_cast<uint8_t*>(out), word.size()));
++//    }
++//
++//    bool ensure_initialized() const override { return rust::ensure_initialized(*mHyphenator); }
++//
++//private:
++//    ::rust::Box<rust::Hyphenator> mHyphenator;
++//};
+ 
+ // static
+ Hyphenator* Hyphenator::loadBinary(const uint8_t* patternData, size_t dataSize, size_t minPrefix,
+                                    size_t minSuffix, const std::string& locale) {
+-    if (features::rust_hyphenator()) {
+-        return new HyphenatorRust(patternData, dataSize, minPrefix, minSuffix, locale);
+-    }
++    //if (features::rust_hyphenator()) {
++    //    return new HyphenatorRust(patternData, dataSize, minPrefix, minSuffix, locale);
++    //}
+     return HyphenatorCXX::loadBinary(patternData, dataSize, minPrefix, minSuffix, locale);
+ }
+ 
+-Hyphenator* Hyphenator::loadBinaryForRust(const uint8_t* patternData, size_t dataSize,
+-                                          size_t minPrefix, size_t minSuffix,
+-                                          const std::string& locale) {
+-    return new HyphenatorRust(patternData, dataSize, minPrefix, minSuffix, locale);
+-}
++//Hyphenator* Hyphenator::loadBinaryForRust(const uint8_t* patternData, size_t dataSize,
++//                                          size_t minPrefix, size_t minSuffix,
++//                                          const std::string& locale) {
++//    return new HyphenatorRust(patternData, dataSize, minPrefix, minSuffix, locale);
++//}
+ 
+-Hyphenator* Hyphenator::loadBinaryFromPath(const std::string& path, size_t minPrefix,
+-                                           size_t minSuffix, const std::string& locale) {
+-    return new HyphenatorRust(path, minPrefix, minSuffix, locale);
+-}
++//Hyphenator* Hyphenator::loadBinaryFromPath(const std::string& path, size_t minPrefix,
++//                                           size_t minSuffix, const std::string& locale) {
++//    return new HyphenatorRust(path, minPrefix, minSuffix, locale);
++//}
+ 
+ // static
+ Hyphenator* HyphenatorCXX::loadBinary(const uint8_t* patternData, size_t, size_t minPrefix,
+diff --git a/libs/minikin/LayoutCore.cpp b/libs/minikin/LayoutCore.cpp
+index da2767e..5de5fdb 100644
+--- a/libs/minikin/LayoutCore.cpp
++++ b/libs/minikin/LayoutCore.cpp
+@@ -16,6 +16,7 @@
+ 
+ #define ATRACE_TAG ATRACE_TAG_VIEW
+ 
++#include <bitset>
+ #include "minikin/LayoutCore.h"
+ 
+ #include <hb-icu.h>
+diff --git a/libs/minikin/LayoutUtils.cpp b/libs/minikin/LayoutUtils.cpp
+index c69dbf3..4425fac 100644
+--- a/libs/minikin/LayoutUtils.cpp
++++ b/libs/minikin/LayoutUtils.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <cstring>
+ #include "LayoutUtils.h"
+ 
+ #include "StringPiece.h"
+diff --git a/libs/minikin/Locale.h b/libs/minikin/Locale.h
+index 7f87533..4170f6e 100644
+--- a/libs/minikin/Locale.h
++++ b/libs/minikin/Locale.h
+@@ -17,6 +17,7 @@
+ #ifndef MINIKIN_LOCALE_LIST_H
+ #define MINIKIN_LOCALE_LIST_H
+ 
++#include <cstring>
+ #include <hb.h>
+ 
+ #include <string>
+diff --git a/libs/minikin/StringPiece.h b/libs/minikin/StringPiece.h
+index 84c7d17..e21246c 100644
+--- a/libs/minikin/StringPiece.h
++++ b/libs/minikin/StringPiece.h
+@@ -17,6 +17,7 @@
+ #ifndef MINIKIN_STRING_PIECE_H
+ #define MINIKIN_STRING_PIECE_H
+ 
++#include <cstring>
+ #include <cstdint>
+ #include <string>
+ #include <vector>

@@ -1,0 +1,188 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:51 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ liblog/include/log/log_main.h |  22 +++----
+ liblog/properties.cpp         | 116 ++++++++++++++++++++++++++++++++--
+ 2 files changed, 121 insertions(+), 17 deletions(-)
+
+diff --git a/liblog/include/log/log_main.h b/liblog/include/log/log_main.h
+index 0cb7dd7..96918a3 100644
+--- a/liblog/include/log/log_main.h
++++ b/liblog/include/log/log_main.h
+@@ -147,16 +147,16 @@ extern int __fake_use_va_args(int, ...);
+  * are stripped out of release builds.
+  */
+ 
+-#if LOG_NDEBUG
+-
+-#ifndef LOG_FATAL_IF
+-#define LOG_FATAL_IF(cond, ...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
+-#endif
+-#ifndef LOG_FATAL
+-#define LOG_FATAL(...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
+-#endif
+-
+-#else
++//#if LOG_NDEBUG
++//
++//#ifndef LOG_FATAL_IF
++//#define LOG_FATAL_IF(cond, ...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
++//#endif
++//#ifndef LOG_FATAL
++//#define LOG_FATAL(...) __FAKE_USE_VA_ARGS(__VA_ARGS__)
++//#endif
++//
++//#else
+ 
+ #ifndef LOG_FATAL_IF
+ #define LOG_FATAL_IF(cond, ...) LOG_ALWAYS_FATAL_IF(cond, ##__VA_ARGS__)
+@@ -165,7 +165,7 @@ extern int __fake_use_va_args(int, ...);
+ #define LOG_FATAL(...) LOG_ALWAYS_FATAL(__VA_ARGS__)
+ #endif
+ 
+-#endif
++//#endif
+ 
+ /*
+  * Assertion that generates a log message when the assertion fails.
+diff --git a/liblog/properties.cpp b/liblog/properties.cpp
+index f5ce5ef..f6c1fff 100644
+--- a/liblog/properties.cpp
++++ b/liblog/properties.cpp
+@@ -23,6 +23,8 @@
+ #include <unistd.h>
+ 
+ #include <algorithm>
++#include <string>
++#include <vector>
+ 
+ #include <android-base/macros.h>
+ 
+@@ -302,16 +304,118 @@ int __android_log_security() {
+ 
+ #else
+ 
+-int __android_log_is_loggable(int prio, const char*, int) {
++namespace {
++
++int priority_for_char(char c) {
++  switch (toupper(static_cast<unsigned char>(c))) {
++    case 'V': return ANDROID_LOG_VERBOSE;
++    case 'D': return ANDROID_LOG_DEBUG;
++    case 'I': return ANDROID_LOG_INFO;
++    case 'W': return ANDROID_LOG_WARN;
++    case 'E': return ANDROID_LOG_ERROR;
++    case 'F':
++    case 'A': return ANDROID_LOG_FATAL;
++    case 'S': return ANDROID_LOG_SILENT;
++    default: return -1;
++  }
++}
++
++int configured_minimum_priority() {
+   int minimum_priority = __android_log_get_minimum_priority();
+-  if (minimum_priority == ANDROID_LOG_DEFAULT) {
+-    minimum_priority = ANDROID_LOG_INFO;
++  if (minimum_priority != ANDROID_LOG_DEFAULT) {
++    return minimum_priority;
++  }
++  const char* value = getenv("DROIDLET_LOG_LEVEL");
++  if (value == nullptr || value[0] == '\0') {
++    return ANDROID_LOG_DEFAULT;
++  }
++  int parsed = priority_for_char(value[0]);
++  if (parsed >= 0) {
++    return parsed;
++  }
++  char* end = nullptr;
++  long numeric = strtol(value, &end, 10);
++  if (end != value && *end == '\0' && numeric >= ANDROID_LOG_VERBOSE &&
++      numeric <= ANDROID_LOG_SILENT) {
++    return static_cast<int>(numeric);
++  }
++  return ANDROID_LOG_DEFAULT;
++}
++
++struct LogFilter {
++  std::string tag;
++  int priority;
++  bool wildcard;
++};
++
++const std::vector<LogFilter>& log_filters() {
++  static const std::vector<LogFilter> filters = [] {
++    std::vector<LogFilter> result;
++    const char* spec = getenv("DROIDLET_LOG_TAGS");
++    if (spec == nullptr || spec[0] == '\0') {
++      spec = getenv("ANDROID_LOG_TAGS");
++    }
++    if (spec == nullptr) {
++      return result;
++    }
++    std::string text(spec);
++    size_t start = 0;
++    while (start < text.size()) {
++      size_t end = text.find_first_of(" ,", start);
++      std::string entry = text.substr(start, end == std::string::npos
++                                                  ? std::string::npos
++                                                  : end - start);
++      start = end == std::string::npos ? text.size() : end + 1;
++      if (entry.empty()) {
++        continue;
++      }
++      size_t colon = entry.find(':');
++      std::string tag = entry.substr(0, colon);
++      int priority = ANDROID_LOG_VERBOSE;
++      if (colon != std::string::npos && colon + 1 < entry.size()) {
++        int parsed = priority_for_char(entry[colon + 1]);
++        if (parsed >= 0) {
++          priority = parsed;
++        }
++      }
++      result.push_back(LogFilter{tag, priority, tag == "*"});
++    }
++    return result;
++  }();
++  return filters;
++}
++
++}  // namespace
++
++int __android_log_is_loggable(int prio, const char* tag, int default_prio) {
++  const int minimum_priority = configured_minimum_priority();
++  int threshold = minimum_priority != ANDROID_LOG_DEFAULT ? minimum_priority
++                                                          : ANDROID_LOG_INFO;
++  const auto& filters = log_filters();
++  if (!filters.empty()) {
++    int filter_threshold = -1;
++    int best_specificity = -1;
++    const std::string tag_text = tag != nullptr ? tag : "";
++    for (const auto& filter : filters) {
++      if (!filter.wildcard && filter.tag != tag_text) {
++        continue;
++      }
++      const int specificity = filter.wildcard ? 0 : 1;
++      if (specificity >= best_specificity) {
++        best_specificity = specificity;
++        filter_threshold = filter.priority;
++      }
++    }
++    // With an explicit filter expression, unmatched tags stay quiet unless
++    // the expression includes a wildcard.  Use "*:V" to enable everything.
++    threshold = filter_threshold >= 0 ? std::max(threshold, filter_threshold)
++                                      : ANDROID_LOG_SILENT;
+   }
+-  return prio >= minimum_priority;
++  return prio >= threshold;
+ }
+ 
+-int __android_log_is_loggable_len(int prio, const char*, size_t, int def) {
+-  return __android_log_is_loggable(prio, nullptr, def);
++int __android_log_is_loggable_len(int prio, const char* tag, size_t, int def) {
++  return __android_log_is_loggable(prio, tag, def);
+ }
+ 
+ int __android_log_is_debuggable() {

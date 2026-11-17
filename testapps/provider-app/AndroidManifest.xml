@@ -1,0 +1,26 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.droidlet.providerapp">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="37" />
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <application
+        android:name=".MyApplication"
+        android:label="Provider App"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
+        <provider
+            android:name=".MyProvider"
+            android:authorities="com.example.droidlet.provider"
+            android:exported="true" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

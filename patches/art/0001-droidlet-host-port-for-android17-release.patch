@@ -1,0 +1,396 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:49 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ libartbase/base/strlcpy.h                     |  2 +-
+ libartbase/base/time_utils.h                  |  1 +
+ libdexfile/dex/invoke_type.h                  |  1 +
+ .../include/nativeloader/native_loader.h      |  3 +
+ libnativeloader/native_loader.cpp             | 75 +++++++++++++++++--
+ openjdkjvm/OpenjdkJvm.cc                      |  1 +
+ runtime/class_linker.cc                       |  2 +-
+ runtime/jni/java_vm_ext.cc                    |  2 +-
+ runtime/native_stack_dump.cc                  | 11 +--
+ runtime/runtime.cc                            |  8 +-
+ runtime/runtime_common.h                      |  1 +
+ runtime/scoped_thread_priority_change.cc      |  6 +-
+ runtime/thread.cc                             | 12 ++-
+ runtime/thread_linux.cc                       |  2 +-
+ runtime/trace.h                               |  4 +-
+ 15 files changed, 99 insertions(+), 32 deletions(-)
+
+diff --git a/libartbase/base/strlcpy.h b/libartbase/base/strlcpy.h
+index b5978c5..dd5dbe0 100644
+--- a/libartbase/base/strlcpy.h
++++ b/libartbase/base/strlcpy.h
+@@ -26,7 +26,7 @@
+ // Bionic exposes this function, but the host glibc does not. Remove this shim when we compile
+ // against bionic on the host, also.
+ 
+-#if !defined(__BIONIC__) && !defined(__APPLE__) && !defined(ANDROID_HOST_MUSL)
++#if !defined(__BIONIC__) && !defined(__APPLE__) && !defined(ANDROID_HOST_MUSL) && !defined(__GLIBC__)
+ 
+ static inline size_t strlcpy(char* dst, const char* src, size_t size) {
+   // Extra-lazy implementation: this is only a host shim, and we don't have to call this often.
+diff --git a/libartbase/base/time_utils.h b/libartbase/base/time_utils.h
+index ddabb12..18531c4 100644
+--- a/libartbase/base/time_utils.h
++++ b/libartbase/base/time_utils.h
+@@ -25,6 +25,7 @@
+ 
+ #include <cstdint>
+ #include <string>
++#include <limits>
+ 
+ #include "android-base/logging.h"
+ 
+diff --git a/libdexfile/dex/invoke_type.h b/libdexfile/dex/invoke_type.h
+index 448d75a..1b9a108 100644
+--- a/libdexfile/dex/invoke_type.h
++++ b/libdexfile/dex/invoke_type.h
+@@ -18,6 +18,7 @@
+ #define ART_LIBDEXFILE_DEX_INVOKE_TYPE_H_
+ 
+ #include <iosfwd>
++#include <cstdint>
+ 
+ namespace art {
+ 
+diff --git a/libnativeloader/include/nativeloader/native_loader.h b/libnativeloader/include/nativeloader/native_loader.h
+index 6a2046f..90a9078 100644
+--- a/libnativeloader/include/nativeloader/native_loader.h
++++ b/libnativeloader/include/nativeloader/native_loader.h
+@@ -48,6 +48,9 @@ __attribute__((visibility("default"))) bool CloseNativeLibrary(void* handle,
+                                                                const bool needs_native_bridge,
+                                                                char** error_msg);
+ 
++__attribute__((visibility("default"))) void* FindNativeLibrarySymbol(void* handle,
++                                                                     const char* symbol);
++
+ __attribute__((visibility("default"))) void NativeLoaderFreeErrorMessage(char* msg);
+ 
+ #if defined(__ANDROID__)
+diff --git a/libnativeloader/native_loader.cpp b/libnativeloader/native_loader.cpp
+index 5a99436..e82927c 100644
+--- a/libnativeloader/native_loader.cpp
++++ b/libnativeloader/native_loader.cpp
+@@ -21,6 +21,9 @@
+ #include <dlfcn.h>
+ #include <sys/types.h>
+ 
++#include <cstdlib>
++#include <cstring>
++#include <cstdio>
+ #include <algorithm>
+ #include <memory>
+ #include <mutex>
+@@ -47,6 +50,34 @@
+ #include "log/log.h"
+ #endif
+ 
++#if !defined(ART_TARGET_ANDROID)
++// Host replacement loader for bionic-linked app JNI libraries.
++extern "C" {
++void* bionic_dlopen(const char* filename, int flags);
++void* bionic_dlsym(void* handle, const char* symbol);
++int bionic_dlclose(void* handle);
++const char* bionic_dlerror(void);
++void dl_parse_library_path(const char* path, char* delim);
++}
++
++static bool IsAppNativeLibraryPath(const char* path, const std::string& library_path) {
++  if (std::getenv("DROIDLET_NO_BIONIC_JNI") != nullptr) {
++    return false;
++  }
++  const char* android_data = std::getenv("ANDROID_DATA");
++  if (android_data == nullptr || android_data[0] == '\0') {
++    return false;
++  }
++  std::string app_root(android_data);
++  app_root += "/app/";
++  auto under_app_root = [&app_root](const char* candidate) {
++    return candidate != nullptr && candidate[0] == '/' &&
++           std::strncmp(candidate, app_root.c_str(), app_root.size()) == 0;
++  };
++  return under_app_root(path) || under_app_root(library_path.c_str());
++}
++#endif
++
+ namespace android {
+ 
+ namespace {
+@@ -470,17 +501,28 @@ void* OpenNativeLibrary(JNIEnv* env,
+ #else   // !ART_TARGET_ANDROID
+   UNUSED(env, target_sdk_version, class_loader, caller_location);
+ 
+-  // Do some best effort to emulate library-path support. It will not
+-  // work for dependencies.
+-  //
+-  // Note: null has a special meaning and must be preserved.
+-  std::string library_path;  // Empty string by default.
+-  if (library_path_j != nullptr && path != nullptr && path[0] != '/') {
++  // Best-effort host library path support.  bionic_translation needs the
++  // directory in its own search path even when ART passes an absolute path.
++  std::string library_path;
++  if (library_path_j != nullptr) {
+     ScopedUtfChars library_path_utf_chars(env, library_path_j);
+     library_path = library_path_utf_chars.c_str();
+   }
+ 
++  if (library_path.empty() && path != nullptr && path[0] == '/') {
++    std::string dir(path);
++    size_t slash = dir.find_last_of('/');
++    if (slash != std::string::npos) {
++      library_path = dir.substr(0, slash);
++    }
++  }
++
+   std::vector<std::string> library_paths = base::Split(library_path, ":");
++  const bool use_bionic = IsAppNativeLibraryPath(path, library_path);
++
++  if (use_bionic && !library_path.empty()) {
++    dl_parse_library_path(library_path.c_str(), const_cast<char*>(":"));
++  }
+ 
+   for (const std::string& lib_path : library_paths) {
+     *needs_native_bridge = false;
+@@ -489,6 +531,8 @@ void* OpenNativeLibrary(JNIEnv* env,
+     if (path == nullptr) {
+       // Preserve null.
+       path_arg = nullptr;
++    } else if (path[0] == '/') {
++      path_arg = path;
+     } else {
+       complete_path = lib_path;
+       if (!complete_path.empty()) {
+@@ -497,7 +541,7 @@ void* OpenNativeLibrary(JNIEnv* env,
+       complete_path.append(path);
+       path_arg = complete_path.c_str();
+     }
+-    void* handle = dlopen(path_arg, RTLD_NOW);
++    void* handle = use_bionic ? bionic_dlopen(path_arg, RTLD_NOW) : dlopen(path_arg, RTLD_NOW);
+     if (handle != nullptr) {
+       return handle;
+     }
+@@ -509,7 +553,15 @@ void* OpenNativeLibrary(JNIEnv* env,
+       }
+       *error_msg = strdup(NativeBridgeGetError());
+     } else {
+-      *error_msg = strdup(dlerror());
++      const char* error = use_bionic ? bionic_dlerror() : dlerror();
++      if (error == nullptr) {
++        error = "unknown native library load failure";
++      }
++      if (use_bionic) {
++        fprintf(stderr, "bionic JNI load failed for %s: %s\n",
++                path_arg != nullptr ? path_arg : "(null)", error);
++      }
++      *error_msg = strdup(error);
+     }
+   }
+   return nullptr;
+@@ -524,10 +576,17 @@ bool CloseNativeLibrary(void* handle, const bool needs_native_bridge, char** err
+       *error_msg = strdup(NativeBridgeGetError());
+     }
+   } else {
++#if defined(ART_TARGET_ANDROID)
+     success = (dlclose(handle) == 0);
+     if (!success) {
+       *error_msg = strdup(dlerror());
+     }
++#else
++    success = (bionic_dlclose(handle) == 0);
++    if (!success) {
++      *error_msg = strdup(bionic_dlerror());
++    }
++#endif
+   }
+ 
+   return success;
+diff --git a/openjdkjvm/OpenjdkJvm.cc b/openjdkjvm/OpenjdkJvm.cc
+index 23cb920..31a85d4 100644
+--- a/openjdkjvm/OpenjdkJvm.cc
++++ b/openjdkjvm/OpenjdkJvm.cc
+@@ -41,6 +41,7 @@
+ #include <sys/socket.h>
+ #include <sys/time.h>
+ #include <unistd.h>
++#include <math.h>
+ 
+ #include <android-base/logging.h>
+ 
+diff --git a/runtime/class_linker.cc b/runtime/class_linker.cc
+index 4b3c667..3fc834b 100644
+--- a/runtime/class_linker.cc
++++ b/runtime/class_linker.cc
+@@ -3491,7 +3491,7 @@ struct ScopedDefiningClass {
+     return Finish(h_klass);
+   }
+ 
+-  ObjPtr<mirror::Class> Finish([[maybe_unused]] nullptr_t np)
++  ObjPtr<mirror::Class> Finish([[maybe_unused]] std::nullptr_t np)
+       REQUIRES_SHARED(Locks::mutator_lock_) {
+     ScopedNullHandle<mirror::Class> snh;
+     return Finish(snh);
+diff --git a/runtime/jni/java_vm_ext.cc b/runtime/jni/java_vm_ext.cc
+index c671fd7..decdb67 100644
+--- a/runtime/jni/java_vm_ext.cc
++++ b/runtime/jni/java_vm_ext.cc
+@@ -173,7 +173,7 @@ class SharedLibrary {
+       REQUIRES(!Locks::mutator_lock_) {
+     CHECK(!NeedsNativeBridge());
+ 
+-    return dlsym(handle_, symbol_name.c_str());
++    return android::FindNativeLibrarySymbol(handle_, symbol_name.c_str());
+   }
+ 
+   void* FindSymbolWithNativeBridge(const std::string& symbol_name,
+diff --git a/runtime/native_stack_dump.cc b/runtime/native_stack_dump.cc
+index f633bef..9930d8c 100644
+--- a/runtime/native_stack_dump.cc
++++ b/runtime/native_stack_dump.cc
+@@ -67,16 +67,7 @@ using android::base::StringPrintf;
+ static constexpr bool kUseAddr2line = !kIsTargetBuild;
+ 
+ std::string FindAddr2line() {
+-#if !defined(ART_TARGET) && !defined(ART_CLANG_PATH)
+-  #error "ART_CLANG_PATH must be defined on host build"
+-#endif
+-#if defined(ART_CLANG_PATH)
+-  const char* env_value = getenv("ANDROID_BUILD_TOP");
+-  std::string_view top(env_value != nullptr ? env_value : ".");
+-  return std::string(top) + "/" + ART_CLANG_PATH + "/bin/llvm-addr2line";
+-#else
+-  return std::string("llvm-addr2line");
+-#endif
++  return std::string("/usr/bin/llvm-addr2line-20");
+ }
+ 
+ ALWAYS_INLINE
+diff --git a/runtime/runtime.cc b/runtime/runtime.cc
+index ea10528..33be5a5 100644
+--- a/runtime/runtime.cc
++++ b/runtime/runtime.cc
+@@ -161,7 +161,7 @@
+ #include "oat/oat_file_manager.h"
+ #include "oat/oat_quick_method_header.h"
+ #include "object_callbacks.h"
+-#include "odr_statslog/odr_statslog.h"
++//#include "odr_statslog/odr_statslog.h"
+ #include "parsed_options.h"
+ #include "quick/quick_method_frame_info.h"
+ #include "reflection.h"
+@@ -1385,9 +1385,9 @@ void Runtime::InitNonZygoteOrPostFork(
+     ScopedTrace tr("odrefresh and device stats logging");
+     ScopedThreadSuspension sts(Thread::Current(), ThreadState::kNative);
+     // Report stats if available. This should be moved into ART Services when they are ready.
+-    if (!odrefresh::UploadStatsIfAvailable(&err)) {
+-      LOG(WARNING) << "Failed to upload odrefresh metrics: " << err;
+-    }
++    //if (!odrefresh::UploadStatsIfAvailable(&err)) {
++    //  LOG(WARNING) << "Failed to upload odrefresh metrics: " << err;
++    //}
+   }
+ 
+   if (LIKELY(automatically_set_jni_ids_indirection_) && CanSetJniIdType()) {
+diff --git a/runtime/runtime_common.h b/runtime/runtime_common.h
+index 1161dda..1a095ff 100644
+--- a/runtime/runtime_common.h
++++ b/runtime/runtime_common.h
+@@ -27,6 +27,7 @@
+ 
+ #include <sys/utsname.h>
+ #include <ucontext.h>
++#include <signal.h>
+ 
+ #include <iomanip>
+ 
+diff --git a/runtime/scoped_thread_priority_change.cc b/runtime/scoped_thread_priority_change.cc
+index 67cd755..e3be9ab 100644
+--- a/runtime/scoped_thread_priority_change.cc
++++ b/runtime/scoped_thread_priority_change.cc
+@@ -19,13 +19,13 @@
+ #include <sys/resource.h>
+ 
+ #include "base/mutex.h"
+-#include "com_android_libcore.h"
++//#include "com_android_libcore.h"
+ #include "thread-inl.h"
+ 
+ namespace art HIDDEN {
+ 
+ void ScopedPriorityChange::SetToNormalOrBetter() {
+-  static bool enabled = com::android::libcore::niceness_apis();
++  static bool enabled = false;//com::android::libcore::niceness_apis();
+   if (!enabled) {
+     return;
+   }
+@@ -54,7 +54,7 @@ void ScopedPriorityChange::SetToNormalOrBetter() {
+ void ScopedPriorityChange::ResetInternal() {
+   DCHECK(priority_changed_);
+   DCHECK_GT(self_->GetNicenessBeforeBoost(), 0);
+-  DCHECK(com::android::libcore::niceness_apis());
++  //DCHECK(com::android::libcore::niceness_apis());
+   Locks::mutator_lock_->AssertSharedHeld(self_);
+   self_->SetNicenessBeforeBoost(Thread::kNotBoosted);  // Do this even if getpriority() test
+                                                        // fails.
+diff --git a/runtime/thread.cc b/runtime/thread.cc
+index c3a28d5..842974b 100644
+--- a/runtime/thread.cc
++++ b/runtime/thread.cc
+@@ -791,7 +791,7 @@ static size_t FixStackSize(size_t stack_size) {
+ 
+   // It's not possible to request a stack smaller than the system-defined PTHREAD_STACK_MIN.
+   if (stack_size < PTHREAD_STACK_MIN) {
+-    stack_size = PTHREAD_STACK_MIN;
++    stack_size = (size_t)PTHREAD_STACK_MIN;
+   }
+ 
+   if (Runtime::Current()->GetImplicitStackOverflowChecks()) {
+@@ -5106,6 +5106,16 @@ int Thread::SetNativeNiceness(int niceness) {
+   if (ret == 0) {
+     return 0;
+   }
++  // The host process normally lacks CAP_SYS_NICE, so Android's negative
++  // audio/display priorities cannot be applied.  Treat a denied negative
++  // niceness as best-effort success so framework threads (HandlerThread,
++  // ExoPlayer, media codecs) still start at the default niceness instead of
++  // aborting with a SecurityException.
++  if (niceness < 0 && (errno == EPERM || errno == EACCES)) {
++    LOG(INFO) << "Cannot raise thread niceness to " << niceness
++              << "; continuing at default priority";
++    return 0;
++  }
+   LOG(WARNING) << "Cannot set niceness to " << niceness;
+   // TODO: With PaletteMapPriority we may want to do more here.
+   return errno;
+diff --git a/runtime/thread_linux.cc b/runtime/thread_linux.cc
+index 860d0e5..6251ccb 100644
+--- a/runtime/thread_linux.cc
++++ b/runtime/thread_linux.cc
+@@ -33,7 +33,7 @@ static void SigAltStack(stack_t* new_stack, stack_t* old_stack) {
+ // handler or do a stack unwind, this is too small.  We allocate 32K
+ // instead of the minimum signal stack size.
+ // TODO: We shouldn't do logging (with locks) in signal handlers.
+-static constexpr int kHostAltSigStackSize =
++static int kHostAltSigStackSize =
+     32 * KB < MINSIGSTKSZ ? MINSIGSTKSZ : 32 * KB;
+ 
+ void Thread::SetUpAlternateSignalStack() {
+diff --git a/runtime/trace.h b/runtime/trace.h
+index bb13a80..3619130 100644
+--- a/runtime/trace.h
++++ b/runtime/trace.h
+@@ -461,8 +461,8 @@ class Trace final : public instrumentation::InstrumentationListener, public Clas
+     kTraceClockSourceThreadCpu = 0x100,
+   };
+ 
+-  static const int kFormatV1 = 0;
+-  static const int kFormatV2 = 1;
++  static constexpr int kFormatV1 = 0;
++  static constexpr int kFormatV2 = 1;
+   static const int kTraceFormatVersionFlagMask = 0b110;
+   static const int kTraceFormatVersionShift = 1;
+ 

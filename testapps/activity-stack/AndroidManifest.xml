@@ -1,0 +1,20 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.droidlet.activitystack">
+
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="37" />
+
+    <application
+        android:label="Activity Stack"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name=".FirstActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".SecondActivity" android:exported="false" />
+        <activity android:name=".ThirdActivity" android:exported="false" />
+    </application>
+</manifest>

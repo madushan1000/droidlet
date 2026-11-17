@@ -1,0 +1,6 @@
+option(
+  'android_home',
+  type: 'string',
+  value: '',
+  description: 'Android SDK root (contains build-tools/)',
+)

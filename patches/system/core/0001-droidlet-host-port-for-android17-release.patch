@@ -1,0 +1,368 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ libcutils/include/cutils/atomic.h          | 63 +++++++++++-----------
+ libcutils/include/cutils/trace.h           |  4 +-
+ libcutils/trace-host.cpp                   |  2 +-
+ libprocessgroup/setup/cgroup_map_write.cpp |  1 +
+ libutils/Threads.cpp                       | 36 ++++++-------
+ libutils/include/utils/AndroidThreads.h    |  4 +-
+ libutils/misc.cpp                          | 50 ++++++++---------
+ 7 files changed, 81 insertions(+), 79 deletions(-)
+
+diff --git a/libcutils/include/cutils/atomic.h b/libcutils/include/cutils/atomic.h
+index 68e00be..0ff66b9 100644
+--- a/libcutils/include/cutils/atomic.h
++++ b/libcutils/include/cutils/atomic.h
+@@ -19,7 +19,8 @@
+ 
+ #include <stdint.h>
+ #include <sys/types.h>
+-#include <stdatomic.h>
++#include <atomic>
++//#include <stdatomic.h>
+ 
+ /*
+  * A handful of basic atomic operations.
+@@ -67,11 +68,11 @@
+  * If they are not, atomicity is not guaranteed.
+  */
+ 
+-static inline volatile atomic_int_least32_t* to_atomic_int_least32_t(volatile const int32_t* addr) {
++static inline volatile std::atomic_int_least32_t* to_atomic_int_least32_t(volatile const int32_t* addr) {
+ #ifdef __cplusplus
+-    return reinterpret_cast<volatile atomic_int_least32_t*>(const_cast<volatile int32_t*>(addr));
++    return reinterpret_cast<volatile std::atomic_int_least32_t*>(const_cast<volatile int32_t*>(addr));
+ #else
+-    return (volatile atomic_int_least32_t*)addr;
++    return (volatile std::atomic_int_least32_t*)addr;
+ #endif
+ }
+ 
+@@ -83,29 +84,29 @@ static inline volatile atomic_int_least32_t* to_atomic_int_least32_t(volatile co
+  * as the equivalent non-atomic C operations.
+  */
+ static inline int32_t android_atomic_inc(volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+         /* Int32_t, if it exists, is the same as int_least32_t. */
+-    return atomic_fetch_add_explicit(a, 1, memory_order_release);
++    return atomic_fetch_add_explicit(a, 1, std::memory_order_release);
+ }
+ 
+ static inline int32_t android_atomic_dec(volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    return atomic_fetch_sub_explicit(a, 1, memory_order_release);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    return atomic_fetch_sub_explicit(a, 1, std::memory_order_release);
+ }
+ 
+ static inline int32_t android_atomic_add(int32_t value, volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    return atomic_fetch_add_explicit(a, value, memory_order_release);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    return atomic_fetch_add_explicit(a, value, std::memory_order_release);
+ }
+ 
+ static inline int32_t android_atomic_and(int32_t value, volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    return atomic_fetch_and_explicit(a, value, memory_order_release);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    return atomic_fetch_and_explicit(a, value, std::memory_order_release);
+ }
+ 
+ static inline int32_t android_atomic_or(int32_t value, volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    return atomic_fetch_or_explicit(a, value, memory_order_release);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    return atomic_fetch_or_explicit(a, value, std::memory_order_release);
+ }
+ 
+ /*
+@@ -123,19 +124,19 @@ static inline int32_t android_atomic_or(int32_t value, volatile int32_t* addr) {
+  * locks or default sequentially consistent atomics.
+  */
+ static inline int32_t android_atomic_acquire_load(volatile const int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    return atomic_load_explicit(a, memory_order_acquire);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    return atomic_load_explicit(a, std::memory_order_acquire);
+ }
+ 
+ static inline int32_t android_atomic_release_load(volatile const int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    atomic_thread_fence(memory_order_seq_cst);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    atomic_thread_fence(std::memory_order_seq_cst);
+     /* Any reasonable clients of this interface would probably prefer   */
+     /* something weaker.  But some remaining clients seem to be         */
+     /* abusing this API in strange ways, e.g. by using it as a fence.   */
+     /* Thus we are conservative until we can get rid of remaining       */
+     /* clients (and this function).                                     */
+-    return atomic_load_explicit(a, memory_order_relaxed);
++    return atomic_load_explicit(a, std::memory_order_relaxed);
+ }
+ 
+ /*
+@@ -150,15 +151,15 @@ static inline int32_t android_atomic_release_load(volatile const int32_t* addr)
+  * not memory_order_acquire!) instead.
+  */
+ static inline void android_atomic_acquire_store(int32_t value, volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    atomic_store_explicit(a, value, memory_order_relaxed);
+-    atomic_thread_fence(memory_order_seq_cst);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    atomic_store_explicit(a, value, std::memory_order_relaxed);
++    atomic_thread_fence(std::memory_order_seq_cst);
+     /* Again overly conservative to accomodate weird clients.   */
+ }
+ 
+ static inline void android_atomic_release_store(int32_t value, volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+-    atomic_store_explicit(a, value, memory_order_release);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    atomic_store_explicit(a, value, std::memory_order_release);
+ }
+ 
+ /*
+@@ -175,20 +176,20 @@ static inline void android_atomic_release_store(int32_t value, volatile int32_t*
+  */
+ static inline int android_atomic_acquire_cas(int32_t oldvalue, int32_t newvalue,
+                                              volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+     return !atomic_compare_exchange_strong_explicit(
+                                           a, &oldvalue, newvalue,
+-                                          memory_order_acquire,
+-                                          memory_order_acquire);
++                                          std::memory_order_acquire,
++                                          std::memory_order_acquire);
+ }
+ 
+ static inline int android_atomic_release_cas(int32_t oldvalue, int32_t newvalue,
+                                              volatile int32_t* addr) {
+-    volatile atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
++    volatile std::atomic_int_least32_t* a = to_atomic_int_least32_t(addr);
+     return !atomic_compare_exchange_strong_explicit(
+                                           a, &oldvalue, newvalue,
+-                                          memory_order_release,
+-                                          memory_order_relaxed);
++                                          std::memory_order_release,
++                                          std::memory_order_relaxed);
+ }
+ 
+ /*
+@@ -201,7 +202,7 @@ static inline void android_compiler_barrier(void) {
+ }
+ 
+ static inline void android_memory_barrier(void) {
+-    atomic_thread_fence(memory_order_seq_cst);
++    atomic_thread_fence(std::memory_order_seq_cst);
+ }
+ 
+ /*
+diff --git a/libcutils/include/cutils/trace.h b/libcutils/include/cutils/trace.h
+index 7f57637..c0853b2 100644
+--- a/libcutils/include/cutils/trace.h
++++ b/libcutils/include/cutils/trace.h
+@@ -18,7 +18,7 @@
+ #define _LIBS_CUTILS_TRACE_H
+ 
+ #include <inttypes.h>
+-#include <stdatomic.h>
++#include <atomic>
+ #include <stdbool.h>
+ #include <stdint.h>
+ #include <stdio.h>
+@@ -144,7 +144,7 @@ void atrace_set_tracing_enabled(bool enabled);
+  * of this header to always call into atrace_setup, in which we call
+  * atrace_init unconditionally.
+  */
+-extern atomic_bool atrace_is_ready;
++extern std::atomic_bool atrace_is_ready;
+ 
+ /**
+  * Set of ATRACE_TAG flags to trace for, initialized to ATRACE_TAG_NOT_READY.
+diff --git a/libcutils/trace-host.cpp b/libcutils/trace-host.cpp
+index c45d067..aa67db3 100644
+--- a/libcutils/trace-host.cpp
++++ b/libcutils/trace-host.cpp
+@@ -16,7 +16,7 @@
+ 
+ #include <cutils/trace.h>
+ 
+-atomic_bool             atrace_is_ready      = true;
++std::atomic_bool             atrace_is_ready      = true;
+ int                     atrace_marker_fd     = -1;
+ uint64_t                atrace_enabled_tags  = 0;
+ 
+diff --git a/libprocessgroup/setup/cgroup_map_write.cpp b/libprocessgroup/setup/cgroup_map_write.cpp
+index 0b26e95..3cc9d4e 100644
+--- a/libprocessgroup/setup/cgroup_map_write.cpp
++++ b/libprocessgroup/setup/cgroup_map_write.cpp
+@@ -17,6 +17,7 @@
+ //#define LOG_NDEBUG 0
+ #define LOG_TAG "libprocessgroup"
+ 
++#include <cstring>
+ #include <dirent.h>
+ #include <errno.h>
+ #include <fcntl.h>
+diff --git a/libutils/Threads.cpp b/libutils/Threads.cpp
+index 111d46a..fbe464c 100644
+--- a/libutils/Threads.cpp
++++ b/libutils/Threads.cpp
+@@ -309,7 +309,7 @@ void androidSetCreateThreadFunc(android_create_thread_fn func)
+     gCreateThreadFn = func;
+ }
+ 
+-#if defined(__ANDROID__)
++//#if defined(__ANDROID__)
+ int androidSetThreadPriority(pid_t tid, int pri)
+ {
+     int rc = 0;
+@@ -327,7 +327,7 @@ int androidGetThreadPriority(pid_t tid) {
+     return getpriority(PRIO_PROCESS, tid);
+ }
+ 
+-#endif
++//#endif
+ 
+ namespace android {
+ 
+@@ -832,22 +832,22 @@ bool Thread::isRunning() const {
+     return mRunning;
+ }
+ 
+-#if defined(__ANDROID__)
+-pid_t Thread::getTid() const
+-{
+-    // mTid is not defined until the child initializes it, and the caller may need it earlier
+-    Mutex::Autolock _l(mLock);
+-    pid_t tid;
+-    if (mRunning) {
+-        pthread_t pthread = android_thread_id_t_to_pthread(mThread);
+-        tid = pthread_gettid_np(pthread);
+-    } else {
+-        ALOGW("Thread (this=%p): getTid() is undefined before run()", this);
+-        tid = -1;
+-    }
+-    return tid;
+-}
+-#endif
++//#if defined(__ANDROID__)
++//pid_t Thread::getTid() const
++//{
++//    // mTid is not defined until the child initializes it, and the caller may need it earlier
++//    Mutex::Autolock _l(mLock);
++//    pid_t tid;
++//    if (mRunning) {
++//        pthread_t pthread = android_thread_id_t_to_pthread(mThread);
++//        tid = pthread_gettid_np(pthread);
++//    } else {
++//        ALOGW("Thread (this=%p): getTid() is undefined before run()", this);
++//        tid = -1;
++//    }
++//    return tid;
++//}
++//#endif
+ 
+ bool Thread::exitPending() const
+ {
+diff --git a/libutils/include/utils/AndroidThreads.h b/libutils/include/utils/AndroidThreads.h
+index a8d7851..f513b12 100644
+--- a/libutils/include/utils/AndroidThreads.h
++++ b/libutils/include/utils/AndroidThreads.h
+@@ -73,7 +73,7 @@ extern void androidSetCreateThreadFunc(android_create_thread_fn func);
+ // ------------------------------------------------------------------
+ // Extra functions working with raw pids.
+ 
+-#if defined(__ANDROID__)
++//#if defined(__ANDROID__)
+ // Change the priority AND scheduling group of a particular thread.  The priority
+ // should be one of the ANDROID_PRIORITY constants.  Returns INVALID_OPERATION
+ // if the priority set failed, else another value if just the group set failed;
+@@ -83,7 +83,7 @@ extern int androidSetThreadPriority(pid_t tid, int prio);
+ // Get the current priority of a particular thread. Returns one of the
+ // ANDROID_PRIORITY constants or a negative result in case of error.
+ extern int androidGetThreadPriority(pid_t tid);
+-#endif
++//#endif
+ 
+ #ifdef __cplusplus
+ } // extern "C"
+diff --git a/libutils/misc.cpp b/libutils/misc.cpp
+index e1b5f01..ac45d35 100644
+--- a/libutils/misc.cpp
++++ b/libutils/misc.cpp
+@@ -23,10 +23,10 @@
+ #include <log/log.h>
+ #include <utils/Vector.h>
+ 
+-#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
+-#include <dlfcn.h>
+-#include <vndksupport/linker.h>
+-#endif
++//#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
++//#include <dlfcn.h>
++//#include <vndksupport/linker.h>
++//#endif
+ 
+ extern "C" void do_report_sysprop_change();
+ 
+@@ -70,31 +70,31 @@ void add_sysprop_change_callback(sysprop_change_callback cb, int priority) {
+ void add_sysprop_change_callback(sysprop_change_callback, int) {}
+ #endif
+ 
+-#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
+-void (*get_report_sysprop_change_func())() {
+-    void (*func)() = nullptr;
+-    void* handle = android_load_sphal_library("libutils.so", RTLD_NOW);
+-    if (handle != nullptr) {
+-        func = reinterpret_cast<decltype(func)>(dlsym(handle, "do_report_sysprop_change"));
+-    }
+-
+-    return func;
+-}
+-#endif
++//#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
++//void (*get_report_sysprop_change_func())() {
++//    void (*func)() = nullptr;
++//    void* handle = android_load_sphal_library("libutils.so", RTLD_NOW);
++//    if (handle != nullptr) {
++//        func = reinterpret_cast<decltype(func)>(dlsym(handle, "do_report_sysprop_change"));
++//    }
++//
++//    return func;
++//}
++//#endif
+ 
+ void report_sysprop_change() {
+     do_report_sysprop_change();
+ 
+-#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
+-    // libutils.so is double loaded; from the default namespace and from the
+-    // 'sphal' namespace. Redirect the sysprop change event to the other instance
+-    // of libutils.so loaded in the 'sphal' namespace so that listeners attached
+-    // to that instance is also notified with this event.
+-    static auto func = get_report_sysprop_change_func();
+-    if (func != nullptr) {
+-        (*func)();
+-    }
+-#endif
++//#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
++//    // libutils.so is double loaded; from the default namespace and from the
++//    // 'sphal' namespace. Redirect the sysprop change event to the other instance
++//    // of libutils.so loaded in the 'sphal' namespace so that listeners attached
++//    // to that instance is also notified with this event.
++//    static auto func = get_report_sysprop_change_func();
++//    if (func != nullptr) {
++//        (*func)();
++//    }
++//#endif
+ }
+ 
+ };  // namespace android

@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ ojluni/src/main/native/Inet6Address.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ojluni/src/main/native/Inet6Address.c b/ojluni/src/main/native/Inet6Address.c
+index 13c38ce..cf2e6dc 100644
+--- a/ojluni/src/main/native/Inet6Address.c
++++ b/ojluni/src/main/native/Inet6Address.c
+@@ -66,5 +66,5 @@ static void Inet6Address_init(JNIEnv *env) {
+ }
+ 
+ void register_java_net_Inet6Address(JNIEnv* env) {
+-    Inet6Address_init(env);
++    //Inet6Address_init(env);
+ }

@@ -1,0 +1,2404 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ include/attestation/HmacKeyManager.h          |   4 +-
+ include/ftl/string.h                          |   1 +
+ include/input/InputTransport.h                |   2 +-
+ include/input/InputVerifier.h                 |   4 +-
+ include/input/MotionPredictor.h               |  11 +-
+ libs/binder/BackendUnifiedServiceManager.cpp  | 121 +++++++--
+ libs/binder/BackendUnifiedServiceManager.h    |  23 +-
+ libs/binder/BpBinder.cpp                      |  22 +-
+ libs/binder/JvmUtils.h                        |   4 +-
+ libs/binder/OS_non_android_linux.cpp          |   4 +-
+ libs/binder/Parcel.cpp                        | 256 ++++++++++++++++++
+ libs/binder/ProcessState.cpp                  |  27 +-
+ libs/binder/RpcSession.cpp                    |   4 +-
+ libs/binder/Utils.h                           |   1 +
+ libs/binder/include/binder/IInterface.h       |   2 +
+ libs/binder/include/binder/Parcel.h           |   6 +
+ libs/binder/liblog_stub/include/log/log.h     |  17 +-
+ libs/binder/observer/BinderObserver.h         |   4 +-
+ libs/graphicsenv/GraphicsEnv.cpp              |   3 +-
+ libs/gui/BLASTBufferQueue.cpp                 |   2 +
+ libs/gui/BufferQueueCore.cpp                  |   3 +
+ libs/gui/BufferQueueProducer.cpp              |   1 +
+ libs/gui/BufferQueueThreadState.cpp           |   8 +
+ libs/gui/ConsumerBase.cpp                     |   2 -
+ libs/gui/DisplayEventReceiver.cpp             |  49 +++-
+ libs/gui/FrameTimestamps.cpp                  |   6 +-
+ libs/gui/GLConsumer.cpp                       |   7 +-
+ libs/gui/IGraphicBufferProducer.cpp           | 197 +-------------
+ libs/gui/IProducerListener.cpp                |  25 +-
+ libs/gui/Surface.cpp                          |  32 +--
+ libs/gui/include/gui/DisplayEventReceiver.h   |   5 +
+ libs/gui/include/gui/FenceMonitor.h           |   3 +-
+ libs/gui/include/gui/IGraphicBufferProducer.h |  15 +-
+ libs/gui/include/gui/IProducerListener.h      |  12 +-
+ libs/gui/include/gui/RenderCommandBuffer.h    |   2 +-
+ libs/gui/include/gui/Surface.h                |   8 -
+ libs/gui/include/gui/SurfaceComposerClient.h  |   1 +
+ libs/input/Input.cpp                          |   1 +
+ libs/input/InputConsumer.cpp                  |  37 ++-
+ libs/input/InputTransport.cpp                 |  22 +-
+ .../surfacetexture/EGLConsumer.cpp            |   5 +-
+ .../surfacetexture/ImageConsumer.cpp          |   5 +-
+ .../surfacetexture/LegacyEGLConsumer.cpp      |   5 +-
+ libs/nativewindow/AHardwareBuffer.cpp         |  36 +--
+ libs/nativewindow/ANativeWindow.cpp           |   1 -
+ libs/shaders/shaders.cpp                      |   1 +
+ libs/tonemap/tonemap.cpp                      |   1 +
+ libs/ui/DebugUtils.cpp                        |   1 +
+ libs/ui/DependencyMonitor.cpp                 |   4 +-
+ libs/ui/Gralloc4.cpp                          |  11 +-
+ libs/ui/Gralloc5.cpp                          |   2 +-
+ libs/ui/GraphicBuffer.cpp                     |   9 +-
+ libs/ui/GraphicBufferAllocator.cpp            |  21 +-
+ libs/ui/GraphicBufferMapper.cpp               |  50 ++--
+ libs/ui/include/ui/GraphicBufferMapper.h      |   4 +
+ libs/ui/include/ui/GraphicTypes.h             |  12 +-
+ libs/ui/include/ui/PixelFormat.h              |   3 +-
+ libs/ui/include/ui/Rect.h                     |   1 +
+ 58 files changed, 703 insertions(+), 423 deletions(-)
+
+diff --git a/include/attestation/HmacKeyManager.h b/include/attestation/HmacKeyManager.h
+index d725be1..b7e2120 100644
+--- a/include/attestation/HmacKeyManager.h
++++ b/include/attestation/HmacKeyManager.h
+@@ -18,6 +18,8 @@
+ #define ATTESTATION_HMACKEYMANAGER_H
+ 
+ #include <array>
++#include <cstdint>
++#include <cstdlib>
+ 
+ namespace android {
+ /**
+@@ -34,4 +36,4 @@ private:
+ };
+ } // namespace android
+ 
+-#endif // ATTESTATION_HMACKEYMANAGER_H
+\ No newline at end of file
++#endif // ATTESTATION_HMACKEYMANAGER_H
+diff --git a/include/ftl/string.h b/include/ftl/string.h
+index 2d96b06..c061d86 100644
+--- a/include/ftl/string.h
++++ b/include/ftl/string.h
+@@ -22,6 +22,7 @@
+ #include <string>
+ #include <string_view>
+ #include <type_traits>
++#include <cstdint>
+ 
+ namespace android::ftl {
+ 
+diff --git a/include/input/InputTransport.h b/include/input/InputTransport.h
+index 88a17b8..be1b5cf 100644
+--- a/include/input/InputTransport.h
++++ b/include/input/InputTransport.h
+@@ -452,7 +452,7 @@ public:
+ 
+ private:
+     std::unique_ptr<InputChannel> mChannel;
+-    InputVerifier mInputVerifier;
++    //InputVerifier mInputVerifier;
+ };
+ 
+ std::ostream& operator<<(std::ostream& out, const InputMessage& msg);
+diff --git a/include/input/InputVerifier.h b/include/input/InputVerifier.h
+index bece306..f0afb0f 100644
+--- a/include/input/InputVerifier.h
++++ b/include/input/InputVerifier.h
+@@ -19,7 +19,7 @@
+ #include <android-base/result.h>
+ #include <input/Input.h>
+ #include <utils/Timers.h>
+-#include "rust/cxx.h"
++//#include "rust/cxx.h"
+ 
+ namespace android {
+ 
+@@ -59,7 +59,7 @@ public:
+     void resetDevice(DeviceId deviceId);
+ 
+ private:
+-    rust::Box<android::input::verifier::InputVerifier> mVerifier;
++    //rust::Box<android::input::verifier::InputVerifier> mVerifier;
+ };
+ 
+ } // namespace android
+diff --git a/include/input/MotionPredictor.h b/include/input/MotionPredictor.h
+index 200c301..d28c5db 100644
+--- a/include/input/MotionPredictor.h
++++ b/include/input/MotionPredictor.h
+@@ -26,17 +26,18 @@
+ 
+ #include <android-base/result.h>
+ #include <android-base/thread_annotations.h>
+-#include <android/sysprop/InputProperties.sysprop.h>
++//#include <android/sysprop/InputProperties.sysprop.h>
+ #include <input/Input.h>
+ #include <input/MotionPredictorMetricsManager.h>
+ #include <input/RingBuffer.h>
+-#include <input/TfLiteMotionPredictor.h>
++//#include <input/TfLiteMotionPredictor.h>
+ #include <utils/Timers.h> // for nsecs_t
+ 
+ namespace android {
+ 
+ static inline bool isMotionPredictionEnabled() {
+-    return sysprop::InputProperties::enable_motion_prediction().value_or(true);
++    //return sysprop::InputProperties::enable_motion_prediction().value_or(true);
++    return true;
+ }
+ 
+ // Tracker to calculate jerk from motion position samples.
+@@ -125,9 +126,9 @@ private:
+     const nsecs_t mPredictionTimestampOffsetNanos;
+     const std::function<bool()> mCheckMotionPredictionEnabled;
+ 
+-    std::unique_ptr<TfLiteMotionPredictorModel> mModel;
++    //std::unique_ptr<TfLiteMotionPredictorModel> mModel;
+ 
+-    std::unique_ptr<TfLiteMotionPredictorBuffers> mBuffers;
++    //std::unique_ptr<TfLiteMotionPredictorBuffers> mBuffers;
+     std::optional<MotionEvent> mLastEvent;
+ 
+     std::unique_ptr<JerkTracker> mJerkTracker;
+diff --git a/libs/binder/BackendUnifiedServiceManager.cpp b/libs/binder/BackendUnifiedServiceManager.cpp
+index ecf1506..6e42cab 100644
+--- a/libs/binder/BackendUnifiedServiceManager.cpp
++++ b/libs/binder/BackendUnifiedServiceManager.cpp
+@@ -24,6 +24,11 @@
+ #include <cutils/sockets.h>
+ #include <sys/socket.h>
+ #include <sys/un.h>
++#include <unistd.h>
++
++#include <algorithm>
++#include <string_view>
++#include <utility>
+ 
+ #if defined(__BIONIC__) && !defined(__ANDROID_VNDK__)
+ #include <android-base/properties.h>
+@@ -210,6 +215,18 @@ Status BackendUnifiedServiceManager::getService2(const ::std::string& name, os::
+     if (returnIfCached(name, _out)) {
+         return Status::ok();
+     }
++
++    if (mTheRealServiceManager == nullptr) {
++        // No servicemanager process: fall back to the process-local registry.
++        // A missing name has always looked like a null Service here, so keep
++        // that behaviour instead of returning an error.
++        sp<IBinder> binder;
++        findLocalService(name, &binder);
++        *_out = os::Service::make<os::Service::Tag::serviceWithMetadata>(
++                createServiceWithMetadata(binder, false));
++        return Status::ok();
++    }
++
+     os::Service service;
+     Status status = Status::ok();
+     if (mTheRealServiceManager) {
+@@ -241,6 +258,14 @@ Status BackendUnifiedServiceManager::checkService2(const ::std::string& name, os
+         return Status::ok();
+     }
+ 
++    if (mTheRealServiceManager == nullptr) {
++        sp<IBinder> binder;
++        findLocalService(name, &binder);
++        *_out = os::Service::make<os::Service::Tag::serviceWithMetadata>(
++                createServiceWithMetadata(binder, false));
++        return Status::ok();
++    }
++
+     Status status = Status::ok();
+     if (mTheRealServiceManager) {
+         status = mTheRealServiceManager->checkService2(name, &service);
+@@ -347,14 +372,21 @@ Status BackendUnifiedServiceManager::addService(const ::std::string& name,
+         }
+         return status;
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    return addLocalService(name, service, allowIsolated, dumpPriority);
+ }
+ Status BackendUnifiedServiceManager::listServices(int32_t dumpPriority,
+                                                   ::std::vector<::std::string>* _aidl_return) {
+     Status status = Status::ok();
+     if (mTheRealServiceManager) {
+         status = mTheRealServiceManager->listServices(dumpPriority, _aidl_return);
++    } else {
++        _aidl_return->clear();
++        std::lock_guard<std::mutex> lock(mLocalMutex);
++        for (const auto& [name, entry] : mLocalServices) {
++            if (dumpPriority == 0 || (entry.dumpPriority & dumpPriority) != 0) {
++                _aidl_return->push_back(name);
++            }
++        }
+     }
+     if (!status.isOk()) return status;
+ 
+@@ -367,21 +399,50 @@ Status BackendUnifiedServiceManager::registerForNotifications(
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->registerForNotifications(name, callback);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    if (callback == nullptr) {
++        return Status::fromExceptionCode(Status::EX_NULL_POINTER);
++    }
++
++    sp<IBinder> existing;
++    {
++        std::lock_guard<std::mutex> lock(mLocalMutex);
++        auto it = mLocalServices.find(name);
++        if (it != mLocalServices.end()) {
++            existing = it->second.binder;
++        } else {
++            mLocalCallbacks[name].push_back(callback);
++            return Status::ok();
++        }
++    }
++
++    // Already registered: notify immediately, outside the lock.
++    return callback->onRegistration(name, existing);
+ }
+ Status BackendUnifiedServiceManager::unregisterForNotifications(
+         const ::std::string& name, const sp<os::IServiceCallback>& callback) {
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->unregisterForNotifications(name, callback);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++
++    std::lock_guard<std::mutex> lock(mLocalMutex);
++    auto it = mLocalCallbacks.find(name);
++    if (it != mLocalCallbacks.end()) {
++        auto& callbacks = it->second;
++        callbacks.erase(std::remove(callbacks.begin(), callbacks.end(), callback),
++                        callbacks.end());
++        if (callbacks.empty()) {
++            mLocalCallbacks.erase(it);
++        }
++    }
++    return Status::ok();
+ }
+ Status BackendUnifiedServiceManager::isDeclared(const ::std::string& name, bool* _aidl_return) {
+     Status status = Status::ok();
+     if (mTheRealServiceManager) {
+         status = mTheRealServiceManager->isDeclared(name, _aidl_return);
++    } else {
++        std::lock_guard<std::mutex> lock(mLocalMutex);
++        *_aidl_return = mLocalServices.find(name) != mLocalServices.end();
+     }
+     if (!status.isOk()) return status;
+ 
+@@ -400,6 +461,16 @@ Status BackendUnifiedServiceManager::getDeclaredInstances(
+     Status status = Status::ok();
+     if (mTheRealServiceManager) {
+         status = mTheRealServiceManager->getDeclaredInstances(iface, _aidl_return);
++    } else {
++        std::lock_guard<std::mutex> lock(mLocalMutex);
++        for (const auto& [name, entry] : mLocalServices) {
++            std::string_view sv(name);
++            if (base::ConsumePrefix(&sv, iface + "/")) {
++                _aidl_return->emplace_back(sv);
++            } else if (iface == name) {
++                _aidl_return->push_back("");
++            }
++        }
+     }
+     if (!status.isOk()) return status;
+ 
+@@ -422,24 +493,24 @@ Status BackendUnifiedServiceManager::updatableViaApex(
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->updatableViaApex(name, _aidl_return);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    *_aidl_return = std::nullopt;
++    return Status::ok();
+ }
+ Status BackendUnifiedServiceManager::getUpdatableNames(const ::std::string& apexName,
+                                                        ::std::vector<::std::string>* _aidl_return) {
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->getUpdatableNames(apexName, _aidl_return);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    _aidl_return->clear();
++    return Status::ok();
+ }
+ Status BackendUnifiedServiceManager::getConnectionInfo(
+         const ::std::string& name, ::std::optional<os::ConnectionInfo>* _aidl_return) {
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->getConnectionInfo(name, _aidl_return);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    *_aidl_return = std::nullopt;
++    return Status::ok();
+ }
+ Status BackendUnifiedServiceManager::registerClientCallback(
+         const ::std::string& name, const sp<IBinder>& service,
+@@ -455,16 +526,30 @@ Status BackendUnifiedServiceManager::tryUnregisterService(const ::std::string& n
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->tryUnregisterService(name, service);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++
++    std::lock_guard<std::mutex> lock(mLocalMutex);
++    auto it = mLocalServices.find(name);
++    if (it == mLocalServices.end() || it->second.binder != service) {
++        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
++    }
++    mLocalServices.erase(it);
++    return Status::ok();
+ }
+ Status BackendUnifiedServiceManager::getServiceDebugInfo(
+         ::std::vector<os::ServiceDebugInfo>* _aidl_return) {
+     if (mTheRealServiceManager) {
+         return mTheRealServiceManager->getServiceDebugInfo(_aidl_return);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++
++    _aidl_return->clear();
++    std::lock_guard<std::mutex> lock(mLocalMutex);
++    for (const auto& [name, entry] : mLocalServices) {
++        os::ServiceDebugInfo info;
++        info.name = name;
++        info.debugPid = getpid();
++        _aidl_return->push_back(std::move(info));
++    }
++    return Status::ok();
+ }
+ 
+ Status BackendUnifiedServiceManager::checkServiceAccess(
+@@ -474,8 +559,8 @@ Status BackendUnifiedServiceManager::checkServiceAccess(
+         return mTheRealServiceManager->checkServiceAccess(callerCtx, name, permission,
+                                                           _aidl_return);
+     }
+-    return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+-                                     kUnsupportedOpNoServiceManager);
++    *_aidl_return = true;
++    return Status::ok();
+ }
+ 
+ [[clang::no_destroy]] static std::once_flag gUSmOnce;
+diff --git a/libs/binder/BackendUnifiedServiceManager.h b/libs/binder/BackendUnifiedServiceManager.h
+index 55a7f19..aaebe91 100644
+--- a/libs/binder/BackendUnifiedServiceManager.h
++++ b/libs/binder/BackendUnifiedServiceManager.h
+@@ -21,6 +21,10 @@
+ #include <binder/Trace.h>
+ #include <map>
+ #include <memory>
++#include <mutex>
++#include <optional>
++#include <string>
++#include <vector>
+ 
+ namespace android {
+ 
+@@ -154,11 +158,21 @@ public:
+     void enableAddServiceCache(bool value) { mEnableAddServiceCache = value; }
+     // for legacy ABI
+     const String16& getInterfaceDescriptor() const override {
+-        if (mTheRealServiceManager == nullptr) return mNullInterfaceDescriptor;
++        if (mTheRealServiceManager == nullptr) return os::IServiceManager::descriptor;
+         return mTheRealServiceManager->getInterfaceDescriptor();
+     }
+ 
+ private:
++    struct LocalService {
++        sp<IBinder> binder;
++        bool allowIsolated;
++        int32_t dumpPriority;
++    };
++
++    bool findLocalService(const std::string& name, sp<IBinder>* binder) const;
++    binder::Status addLocalService(const std::string& name, const sp<IBinder>& service,
++                                   bool allowIsolated, int32_t dumpPriority);
++
+     // Empty descriptor in case there is no mTheRealServiceManager. We need an
+     // object to return a String& reference and there is only expected to be a
+     // single BackendUnifiedServiceManager per-process, so this is a member
+@@ -167,6 +181,13 @@ private:
+     bool mEnableAddServiceCache = true;
+     std::shared_ptr<BinderCacheWithInvalidation> mCacheForGetService;
+     sp<os::IServiceManager> mTheRealServiceManager;
++
++    // Process-local registry used when there is no servicemanager process.
++    mutable std::mutex mLocalMutex;
++    std::map<std::string, LocalService, std::less<>> mLocalServices;
++    std::map<std::string, std::vector<sp<os::IServiceCallback>>, std::less<>>
++            mLocalCallbacks;
++
+     binder::Status toBinderService(const ::std::string& name, const os::Service& in,
+                                    os::Service* _out);
+     binder::Status updateCache(const std::string& serviceName, const os::Service& service);
+diff --git a/libs/binder/BpBinder.cpp b/libs/binder/BpBinder.cpp
+index e403a00..e0ed620 100644
+--- a/libs/binder/BpBinder.cpp
++++ b/libs/binder/BpBinder.cpp
+@@ -419,6 +419,13 @@ status_t BpBinder::transact(
+ 
+         status_t status;
+         if (isRpcBinder()) [[unlikely]] {
++            // Legacy AIDL proxies create Parcels with Parcel.obtain() and
++            // write kernel-wire binder objects.  Convert them before the RPC
++            // session validates the parcel.
++            status = const_cast<Parcel&>(data).convertToRpc(rpcSession());
++            if (status != NO_ERROR) {
++                return status;
++            }
+             status = rpcSession()->transact(sp<IBinder>::fromExisting(this), code, data, reply,
+                                             flags);
+         } else {
+@@ -486,7 +493,10 @@ status_t BpBinder::linkToDeath(
+                 if (!mObituaries) {
+                     return NO_MEMORY;
+                 }
+-                ALOGV("Requesting death notification: %p handle %d\n", this, binderHandle());
++                // RPC binders have no kernel handle. Death notifications are
++                // delivered by the RpcSession obituary path instead.
++                ALOGV("Requesting death notification: %p handle %d\n", this,
++                      getDebugBinderHandle().value_or(-1));
+                 if (!isRpcBinder()) {
+                     if constexpr (kEnableKernelIpc) {
+                         getWeakRefs()->incWeak(this);
+@@ -531,7 +541,8 @@ status_t BpBinder::unlinkToDeath(
+             }
+             mObituaries->removeAt(i);
+             if (mObituaries->size() == 0) {
+-                ALOGV("Clearing death notification: %p handle %d\n", this, binderHandle());
++                ALOGV("Clearing death notification: %p handle %d\n", this,
++                      getDebugBinderHandle().value_or(-1));
+                 if (!isRpcBinder()) {
+                     if constexpr (kEnableKernelIpc) {
+                         IPCThreadState* self = IPCThreadState::self();
+@@ -556,8 +567,8 @@ void BpBinder::sendObituary()
+         return;
+     }
+ 
+-    ALOGV("Sending obituary for proxy %p handle %d, mObitsSent=%s\n", this, binderHandle(),
+-          mObitsSent ? "true" : "false");
++    ALOGV("Sending obituary for proxy %p handle %d, mObitsSent=%s\n", this,
++          getDebugBinderHandle().value_or(-1), mObitsSent ? "true" : "false");
+ 
+     mAlive = 0;
+     if (mObitsSent) return;
+@@ -565,7 +576,8 @@ void BpBinder::sendObituary()
+     mLock.lock();
+     Vector<Obituary>* obits = mObituaries;
+     if(obits != nullptr) {
+-        ALOGV("Clearing sent death notification: %p handle %d\n", this, binderHandle());
++        ALOGV("Clearing sent death notification: %p handle %d\n", this,
++              getDebugBinderHandle().value_or(-1));
+         if (!isRpcBinder()) {
+             if constexpr (kEnableKernelIpc) {
+                 IPCThreadState* self = IPCThreadState::self();
+diff --git a/libs/binder/JvmUtils.h b/libs/binder/JvmUtils.h
+index 169db28..de0a924 100644
+--- a/libs/binder/JvmUtils.h
++++ b/libs/binder/JvmUtils.h
+@@ -13,13 +13,13 @@
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
+-#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
++#if (defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)) || defined(DROIDLET_HOST_JVM)
+ #include <dlfcn.h>
+ #include <jni.h>
+ extern "C" JavaVM* AndroidRuntimeGetJavaVM();
+ #endif
+ namespace {
+-#if !defined(__ANDROID__) || defined(__ANDROID_RECOVERY__)
++#if !((defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)) || defined(DROIDLET_HOST_JVM))
+ static void* getJavaVM() {
+     return nullptr;
+ }
+diff --git a/libs/binder/OS_non_android_linux.cpp b/libs/binder/OS_non_android_linux.cpp
+index 72454c9..318cce7 100644
+--- a/libs/binder/OS_non_android_linux.cpp
++++ b/libs/binder/OS_non_android_linux.cpp
+@@ -56,8 +56,8 @@ bool report_sysprop_change() {
+ 
+ } // namespace android::binder::os
+ 
+-LIBBINDER_EXPORTED int __android_log_print(int /*prio*/, const char* /*tag*/, const char* fmt,
+-                                           ...) {
++LIBBINDER_EXPORTED int __droidlet_binder_log_print(int /*prio*/, const char* /*tag*/,
++                                                    const char* fmt, ...) {
+     va_list args;
+     va_start(args, fmt);
+     vfprintf(stderr, fmt, args);
+diff --git a/libs/binder/Parcel.cpp b/libs/binder/Parcel.cpp
+index 1ae7af3..c0541d9 100644
+--- a/libs/binder/Parcel.cpp
++++ b/libs/binder/Parcel.cpp
+@@ -30,6 +30,9 @@
+ #include <sys/types.h>
+ #include <unistd.h>
+ #include <algorithm>
++#include <atomic>
++#include <mutex>
++#include <unordered_map>
+ 
+ #include <binder/Binder.h>
+ #include <binder/BpBinder.h>
+@@ -110,6 +113,11 @@ static_assert(sizeof(Parcel) == 60);
+ static std::atomic<size_t> gParcelGlobalAllocCount;
+ static std::atomic<size_t> gParcelGlobalAllocSize;
+ 
++// Null binders are written as flat objects but are not part of mObjects.  Keep
++// their offsets out-of-line so Parcel's ABI (and sizeof) does not change.
++static std::mutex gLegacyNullBinderLock;
++static std::unordered_map<const Parcel*, std::vector<binder_size_t>> gLegacyNullBinders;
++
+ // Maximum number of file descriptors per Parcel.
+ constexpr size_t kMaxFds = 1024;
+ 
+@@ -1085,6 +1093,17 @@ void Parcel::markForRpc(sp<RpcSession> session) {
+     mVariantFields.emplace<RpcFields>(std::move(session));
+ }
+ 
++namespace {
++void appendInt32(std::vector<uint8_t>* out, int32_t value) {
++    const uint8_t* p = reinterpret_cast<const uint8_t*>(&value);
++    out->insert(out->end(), p, p + sizeof(value));
++}
++void appendUint64(std::vector<uint8_t>* out, uint64_t value) {
++    const uint8_t* p = reinterpret_cast<const uint8_t*>(&value);
++    out->insert(out->end(), p, p + sizeof(value));
++}
++}  // namespace
++
+ bool Parcel::isForRpc() const {
+     return std::holds_alternative<RpcFields>(mVariantFields);
+ }
+@@ -1124,6 +1143,235 @@ constexpr int32_t kHeader = B_PACK_CHARS('U', 'N', 'K', 'N');
+ 
+ #endif // BINDER_WITH_KERNEL_IPC
+ 
++status_t Parcel::convertToRpc(const sp<RpcSession>& session) {
++#ifdef BINDER_WITH_KERNEL_IPC
++    if (session == nullptr) {
++        return BAD_VALUE;
++    }
++    if (auto* rpcFields = maybeRpcFields()) {
++        return rpcFields->mSession == session ? NO_ERROR : BAD_VALUE;
++    }
++    if (mOwner != nullptr) {
++        ALOGE("Cannot convert an IPC-owned Parcel to RPC");
++        return INVALID_OPERATION;
++    }
++
++    auto* kernelFields = maybeKernelFields();
++
++    // Legacy AIDL writes a three-int Binder header before the interface
++    // string.  RPC parcels carry only the string, so strip the header when it
++    // is present.  AIDL proxies write it at the start, before any arguments.
++    size_t dataStart = 0;
++    if (mData != nullptr && mDataSize >= 16) {
++        int32_t header = 0;
++        memcpy(&header, mData + 8, sizeof(header));
++        int32_t interfaceLength = 0;
++        memcpy(&interfaceLength, mData + 12, sizeof(interfaceLength));
++        if (header == kHeader && interfaceLength >= 0 &&
++            static_cast<size_t>(interfaceLength) <= (mDataSize - 16) / sizeof(char16_t)) {
++            dataStart = 12;
++        }
++    }
++
++    auto switchToRpc = [&](size_t start) -> status_t {
++        if (start > 0 && mData != nullptr) {
++            const size_t newSize = mDataSize - start;
++            uint8_t* newData = static_cast<uint8_t*>(malloc(newSize));
++            if (newData == nullptr) {
++                return NO_MEMORY;
++            }
++            memcpy(newData, mData + start, newSize);
++            gParcelGlobalAllocSize += newSize;
++            gParcelGlobalAllocSize -= mDataCapacity;
++            free(mData);
++            mData = newData;
++            mDataSize = newSize;
++            mDataCapacity = newSize;
++            mDataPos = newSize;
++        }
++        if (kernelFields != nullptr) {
++            free(kernelFields->mObjects);
++            kernelFields->mObjects = nullptr;
++            kernelFields->mObjectsSize = 0;
++        }
++        sp<RpcSession> rpcSession = session;
++        mVariantFields.emplace<RpcFields>(std::move(rpcSession));
++        return NO_ERROR;
++    };
++
++    if (kernelFields == nullptr || mData == nullptr || kernelFields->mObjectsSize == 0) {
++        // No kernel-wire objects: only the parcel's bookkeeping (and possibly
++        // the legacy interface header) needs to change.
++        return switchToRpc(dataStart);
++    }
++
++    std::vector<binder_size_t> nullBinderPositions;
++    {
++        std::lock_guard<std::mutex> lock(gLegacyNullBinderLock);
++        auto it = gLegacyNullBinders.find(this);
++        if (it != gLegacyNullBinders.end()) {
++            nullBinderPositions = std::move(it->second);
++            gLegacyNullBinders.erase(it);
++        }
++    }
++    std::vector<size_t> offsets(kernelFields->mObjects,
++                                kernelFields->mObjects + kernelFields->mObjectsSize);
++    offsets.insert(offsets.end(), nullBinderPositions.begin(), nullBinderPositions.end());
++    std::sort(offsets.begin(), offsets.end());
++    offsets.erase(std::unique(offsets.begin(), offsets.end()), offsets.end());
++
++    // Validate every object before acquiring any references or fds, so a
++    // failure leaves the Parcel untouched.
++    for (size_t offset : offsets) {
++        if (offset < dataStart || offset > mDataSize ||
++            sizeof(flat_binder_object) > mDataSize - offset) {
++            ALOGE("Legacy Parcel object offset %zu out of range (size %zu)", offset, mDataSize);
++            return BAD_VALUE;
++        }
++        const auto* obj = reinterpret_cast<const flat_binder_object*>(mData + offset);
++        switch (obj->hdr.type) {
++            case BINDER_TYPE_FD:
++                break;
++            case BINDER_TYPE_BINDER:
++                // A null binder has no references; it is still valid.
++                break;
++            case BINDER_TYPE_HANDLE: {
++                sp<IBinder> binder =
++                        ProcessState::self()->getStrongProxyForHandle(obj->handle);
++                if (binder == nullptr) {
++                    ALOGE("Legacy Parcel has an unknown binder handle %u", obj->handle);
++                    return BAD_VALUE;
++                }
++                if (binder->localBinder() == nullptr &&
++                    (binder->remoteBinder() == nullptr ||
++                     !binder->remoteBinder()->isRpcBinder())) {
++                    ALOGE("Legacy Parcel cannot carry a kernel binder proxy over RPC");
++                    return BAD_VALUE;
++                }
++                break;
++            }
++            default:
++                ALOGE("Legacy Parcel object type 0x%08x cannot be converted to RPC",
++                      obj->hdr.type);
++                return BAD_VALUE;
++        }
++    }
++
++    std::vector<uint8_t> converted;
++    converted.reserve(mDataSize - dataStart);
++    std::vector<uint32_t> objectPositions;
++    std::vector<std::variant<binder::unique_fd, binder::borrowed_fd>> fds;
++    const bool includeBinderPositions =
++            session->getProtocolVersion() >=
++            RPC_WIRE_PROTOCOL_VERSION_RPC_HEADER_INCLUDES_BINDER_POSITIONS;
++    size_t cursor = dataStart;
++
++    for (size_t offset : offsets) {
++        if (offset < cursor) {
++            ALOGE("Legacy Parcel object offsets overlap at %zu", offset);
++            return BAD_VALUE;
++        }
++        converted.insert(converted.end(), mData + cursor, mData + offset);
++        const auto* obj = reinterpret_cast<const flat_binder_object*>(mData + offset);
++        const uint32_t objectPosition = static_cast<uint32_t>(converted.size());
++        if (obj->hdr.type == BINDER_TYPE_FD) {
++            const int32_t fdIndex = static_cast<int32_t>(fds.size());
++            if (obj->cookie != 0) {
++                int dupFd = fcntl(static_cast<int>(obj->handle), F_DUPFD_CLOEXEC, 0);
++                if (dupFd < 0) {
++                    ALOGE("Legacy Parcel could not duplicate fd %" PRIuPTR ": %s",
++                          static_cast<uintptr_t>(obj->handle), strerror(errno));
++                    return -errno;
++                }
++                fds.emplace_back(binder::unique_fd(dupFd));
++            } else {
++                fds.emplace_back(binder::borrowed_fd(static_cast<int>(obj->handle)));
++            }
++            appendInt32(&converted, RpcFields::TYPE_NATIVE_FILE_DESCRIPTOR);
++            appendInt32(&converted, fdIndex);
++            objectPositions.push_back(objectPosition);
++        } else if (obj->hdr.type == BINDER_TYPE_BINDER) {
++            if (obj->binder == 0 || obj->cookie == 0) {
++                appendInt32(&converted, RpcFields::TYPE_BINDER_NULL);
++                cursor = offset + sizeof(flat_binder_object);
++                continue;
++            }
++            auto* raw = reinterpret_cast<IBinder*>(obj->cookie);
++            sp<IBinder> binder = sp<IBinder>::fromExisting(raw);
++            // The kernel object table owns one strong reference.  Add another
++            // while we hand the binder to the RPC state; releaseObjects()
++            // below drops the kernel reference.
++            binder->incStrong(this);
++            uint64_t address = 0;
++            status_t status =
++                    session->state()->onBinderLeaving(*session, binder, &address);
++            if (status != NO_ERROR) {
++                binder->decStrong(this);
++                return status;
++            }
++            appendInt32(&converted, RpcFields::TYPE_BINDER);
++            appendUint64(&converted, address);
++            if (includeBinderPositions) {
++                objectPositions.push_back(objectPosition);
++            }
++        } else if (obj->hdr.type == BINDER_TYPE_HANDLE) {
++            sp<IBinder> binder =
++                    ProcessState::self()->getStrongProxyForHandle(obj->handle);
++            if (binder == nullptr) {
++                return BAD_VALUE;
++            }
++            binder->incStrong(this);
++            uint64_t address = 0;
++            status_t status =
++                    session->state()->onBinderLeaving(*session, binder, &address);
++            if (status != NO_ERROR) {
++                binder->decStrong(this);
++                return status;
++            }
++            appendInt32(&converted, RpcFields::TYPE_BINDER);
++            appendUint64(&converted, address);
++            if (includeBinderPositions) {
++                objectPositions.push_back(objectPosition);
++            }
++        }
++        cursor = offset + sizeof(flat_binder_object);
++    }
++    converted.insert(converted.end(), mData + cursor, mData + mDataSize);
++
++    uint8_t* newData = static_cast<uint8_t*>(malloc(converted.size()));
++    if (newData == nullptr) {
++        return NO_MEMORY;
++    }
++    memcpy(newData, converted.data(), converted.size());
++
++    // Drop the original kernel object references and owned fds now that the
++    // converted data owns (duplicates of) everything it needs.
++    releaseObjects();
++    free(kernelFields->mObjects);
++    kernelFields->mObjects = nullptr;
++    kernelFields->mObjectsSize = 0;
++
++    gParcelGlobalAllocSize += converted.size();
++    gParcelGlobalAllocSize -= mDataCapacity;
++    free(mData);
++    mData = newData;
++    mDataSize = converted.size();
++    mDataCapacity = converted.size();
++    mDataPos = mDataSize;
++
++    sp<RpcSession> rpcSession = session;
++    mVariantFields.emplace<RpcFields>(std::move(rpcSession));
++    auto* rpcFields = maybeRpcFields();
++    rpcFields->mObjectPositions = std::move(objectPositions);
++    (void)rpcFields->maybeMakeImpl();
++    rpcFields->mImpl->mFds = std::move(fds);
++    return NO_ERROR;
++#else
++    (void)session;
++    return INVALID_OPERATION;
++#endif
++}
++
+ // Write RPC headers.  (previously just the interface token)
+ status_t Parcel::writeInterfaceToken(const String16& interface)
+ {
+@@ -1973,6 +2221,10 @@ restart_write:
+             kernelFields->mObjectsSize++;
+             // Clear sorted flag if we aren't appending to the end.
+             kernelFields->mObjectsSorted &= mDataPos == mDataSize;
++        } else if (val.hdr.type == BINDER_TYPE_BINDER && val.binder == 0) {
++            // Null binder: keep its position for the legacy-to-RPC converter.
++            std::lock_guard<std::mutex> lock(gLegacyNullBinderLock);
++            gLegacyNullBinders[this].push_back(mDataPos);
+         }
+ 
+         return finishWrite(sizeof(flat_binder_object));
+@@ -3272,6 +3524,10 @@ void Parcel::freeData()
+ 
+ void Parcel::freeDataNoInit()
+ {
++    {
++        std::lock_guard<std::mutex> lock(gLegacyNullBinderLock);
++        gLegacyNullBinders.erase(this);
++    }
+     if (mOwner) {
+         LOG_ALLOC("Parcel %p: freeing other owner data", this);
+         //ALOGI("Freeing data ref of %p (pid=%d)", this, getpid());
+diff --git a/libs/binder/ProcessState.cpp b/libs/binder/ProcessState.cpp
+index dd4444b..2ba1933 100644
+--- a/libs/binder/ProcessState.cpp
++++ b/libs/binder/ProcessState.cpp
+@@ -180,8 +180,20 @@ sp<ProcessState> ProcessState::init(const char* driver, bool requireDefault) {
+     return gProcess;
+ }
+ 
++// see b/166779391: cannot change the VNDK interface, so access like this
++extern sp<BBinder> the_context_object;
++
+ sp<IBinder> ProcessState::getContextObject(const sp<IBinder>& /*caller*/)
+ {
++    // In driverless local mode the context object is the process-local service
++    // manager installed by droidlet before the VM starts.  Do not fall through
++    // to the handle-0 dummy transaction, which needs a driver.
++    if (mDriverFD < 0) {
++        if (the_context_object != nullptr) return the_context_object;
++        ALOGW("Not able to get context object: no binder driver and no local context object.");
++        return nullptr;
++    }
++
+     sp<IBinder> context = getStrongProxyForHandle(0);
+ 
+     if (context) {
+@@ -219,6 +231,12 @@ void ProcessState::childPostFork() {
+ 
+ void ProcessState::startThreadPool()
+ {
++    if (mDriverFD < 0) {
++        // Driverless local mode: there is no kernel queue to service.  Local
++        // binder calls are direct virtual calls, so no pool thread is needed.
++        ALOGI("startThreadPool() ignored: no binder driver (local in-process mode)");
++        return;
++    }
+     std::unique_lock<std::mutex> _l(mLock);
+     if (!mThreadPoolStarted) {
+         if (mMaxThreads == 0) {
+@@ -333,9 +351,6 @@ ProcessState::handle_entry* ProcessState::lookupHandleLocked(int32_t handle)
+     return &mHandleToObject.editItemAt(handle);
+ }
+ 
+-// see b/166779391: cannot change the VNDK interface, so access like this
+-extern sp<BBinder> the_context_object;
+-
+ sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
+ {
+     sp<IBinder> result;
+@@ -345,6 +360,12 @@ sp<IBinder> ProcessState::getStrongProxyForHandle(int32_t handle)
+ 
+     if (handle == 0 && the_context_object != nullptr) return the_context_object;
+ 
++    if (mDriverFD < 0) {
++        // No kernel driver: only the locally installed context object can be
++        // resolved.  Never attempt to create a BpBinder for an unknown handle.
++        return nullptr;
++    }
++
+     handle_entry* e = lookupHandleLocked(handle);
+ 
+     if (e != nullptr) {
+diff --git a/libs/binder/RpcSession.cpp b/libs/binder/RpcSession.cpp
+index 87bf7ea..909d722 100644
+--- a/libs/binder/RpcSession.cpp
++++ b/libs/binder/RpcSession.cpp
+@@ -35,7 +35,7 @@
+ 
+ #include "BuildFlags.h"
+ #include "FdTrigger.h"
+-#if defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)
++#if (defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)) || defined(DROIDLET_HOST_JVM)
+ #include "JvmUtils.h"
+ #endif
+ #include "OS.h"
+@@ -366,7 +366,7 @@ RpcSession::PreJoinSetupResult RpcSession::preJoinSetup(
+ }
+ 
+ namespace {
+-#if !defined(__ANDROID__) || defined(__ANDROID_RECOVERY__)
++#if !((defined(__ANDROID__) && !defined(__ANDROID_RECOVERY__)) || defined(DROIDLET_HOST_JVM))
+ class JavaThreadAttacher {};
+ #else
+ // RAII object for attaching / detaching current thread to JVM if Android Runtime exists. If
+diff --git a/libs/binder/Utils.h b/libs/binder/Utils.h
+index 1421102..d034d50 100644
+--- a/libs/binder/Utils.h
++++ b/libs/binder/Utils.h
+@@ -21,6 +21,7 @@
+ #include <chrono>
+ #include <cstdint>
+ #include <optional>
++#include <cstring>
+ 
+ #include <binder/Common.h>
+ #include <log/log.h>
+diff --git a/libs/binder/include/binder/IInterface.h b/libs/binder/include/binder/IInterface.h
+index 1f032fe..b164bf0 100644
+--- a/libs/binder/include/binder/IInterface.h
++++ b/libs/binder/include/binder/IInterface.h
+@@ -256,6 +256,8 @@ constexpr const char* const kManualInterfaces[] = {
+ 
+ constexpr const char* const kDownstreamManualInterfaces[] = {
+   // Add downstream interfaces here.
++  "android.gui.IGraphicBufferProducer",
++  "android.gui.IProducerListener",
+   nullptr,
+ };
+ 
+diff --git a/libs/binder/include/binder/Parcel.h b/libs/binder/include/binder/Parcel.h
+index a514280..da4ee79 100644
+--- a/libs/binder/include/binder/Parcel.h
++++ b/libs/binder/include/binder/Parcel.h
+@@ -130,6 +130,12 @@ public:
+     // called automatically on reply Parcels for RPC transactions.
+     LIBBINDER_EXPORTED void markForRpc(sp<RpcSession> session);
+ 
++    // Compatibility for legacy (kernel-wire) AIDL proxies that create Parcels
++    // with Parcel.obtain() instead of Parcel.obtain(binder).  Rewrites the
++    // object table in place so the data can be sent over binder RPC.  Returns
++    // OK if the parcel was already RPC-form for this session.
++    LIBBINDER_EXPORTED status_t convertToRpc(const sp<RpcSession>& session);
++
+     // Whether this Parcel is written for RPC transactions (after calls to
+     // markForBinder or markForRpc).
+     LIBBINDER_EXPORTED bool isForRpc() const;
+diff --git a/libs/binder/liblog_stub/include/log/log.h b/libs/binder/liblog_stub/include/log/log.h
+index dad0020..3fa71f0 100644
+--- a/libs/binder/liblog_stub/include/log/log.h
++++ b/libs/binder/liblog_stub/include/log/log.h
+@@ -35,17 +35,18 @@ constexpr bool __android_log_stub_is_loggable(android_LogPriority priority) {
+     return ANDROID_LOG_STUB_MIN_PRIORITY <= priority;
+ }
+ 
++// Keep the binder host stub out of the global __android_log_print symbol.
++// Otherwise libbinder, which is loaded before liblog, interposes the real
++// implementation and bypasses liblog's tag/priority filters.
++int __droidlet_binder_log_print(int prio, const char* tag, const char* fmt, ...)
++        __attribute__((format(printf, 3, 4)));
++
+ #ifdef ANDROID_LOG_STUB_WEAK_PRINT
+-#define __ANDROID_LOG_STUB_IS_PRINT_PRESENT __android_log_print
+-#define __ANDROID_LOG_STUB_PRINT_ATTR __attribute__((weak))
++#define __ANDROID_LOG_STUB_IS_PRINT_PRESENT __droidlet_binder_log_print
+ #else
+ #define __ANDROID_LOG_STUB_IS_PRINT_PRESENT true
+-#define __ANDROID_LOG_STUB_PRINT_ATTR
+ #endif
+ 
+-int __android_log_print(int prio, const char* tag, const char* fmt, ...)
+-        __attribute__((format(printf, 3, 4))) __ANDROID_LOG_STUB_PRINT_ATTR;
+-
+ #define IF_ALOG(priority, tag) \
+     if (__android_log_stub_is_loggable(ANDROID_##priority) && __ANDROID_LOG_STUB_IS_PRINT_PRESENT)
+ #define IF_ALOGV() IF_ALOG(LOG_VERBOSE, LOG_TAG)
+@@ -60,8 +61,8 @@ int __android_log_print(int prio, const char* tag, const char* fmt, ...)
+             std::fprintf(stderr, fmt __VA_OPT__(, ) __VA_ARGS__);            \
+         }                                                                    \
+         IF_ALOG(priority, tag) {                                             \
+-            __android_log_print(ANDROID_##priority, tag, "%s: " fmt "\n",    \
+-                                (tag)__VA_OPT__(, ) __VA_ARGS__);            \
++            __droidlet_binder_log_print(ANDROID_##priority, tag, "%s: " fmt "\n", \
++                                        (tag)__VA_OPT__(, ) __VA_ARGS__);        \
+         }                                                                    \
+         if constexpr (ANDROID_##priority == ANDROID_LOG_FATAL) std::abort(); \
+     } while (false)
+diff --git a/libs/binder/observer/BinderObserver.h b/libs/binder/observer/BinderObserver.h
+index d5e319c..d4820e8 100644
+--- a/libs/binder/observer/BinderObserver.h
++++ b/libs/binder/observer/BinderObserver.h
+@@ -18,7 +18,7 @@
+ #include <mutex>
+ 
+ #include "BinderObserverConfig.h"
+-#include "BinderStatsPusher.h"
++//#include "BinderStatsPusher.h"
+ #include "BinderStatsSpscQueue.h"
+ #include "BinderStatsUtils.h"
+ 
+@@ -80,7 +80,7 @@ private:
+     // BinderStatsCollector stores shared ptrs to queues in IPCThreadState and pulls data from them.
+     BinderStatsCollector mBinderStatsCollector;
+     // BinderStatsPusher aggregates Stats and pushes them to data store.
+-    BinderStatsPusher mPusher;
++    //BinderStatsPusher mPusher;
+     // Lock used to ensure that only one thread is running a flush and push at a time.
+     std::mutex mFlushLock;
+ };
+diff --git a/libs/graphicsenv/GraphicsEnv.cpp b/libs/graphicsenv/GraphicsEnv.cpp
+index 26a3c4a..d75f51e 100644
+--- a/libs/graphicsenv/GraphicsEnv.cpp
++++ b/libs/graphicsenv/GraphicsEnv.cpp
+@@ -27,7 +27,7 @@
+ #include <android-base/file.h>
+ #include <android-base/properties.h>
+ #include <android-base/strings.h>
+-#include <android/dlext.h>
++//#include <android/dlext.h>
+ #include <binder/IServiceManager.h>
+ #include <bionic/dlext_namespaces.h>
+ #include <graphicsenv/IGpuService.h>
+@@ -35,6 +35,7 @@
+ #include <sys/prctl.h>
+ #include <utils/Trace.h>
+ 
++#include <cstring>
+ #include <string>
+ #include <thread>
+ 
+diff --git a/libs/gui/BLASTBufferQueue.cpp b/libs/gui/BLASTBufferQueue.cpp
+index 8000691..c6af743 100644
+--- a/libs/gui/BLASTBufferQueue.cpp
++++ b/libs/gui/BLASTBufferQueue.cpp
+@@ -50,6 +50,8 @@
+ 
+ #include "AsyncWorker.h"
+ 
++#define SCHED_EXT 7
++
+ using namespace com::android::graphics::libgui;
+ using namespace std::chrono_literals;
+ 
+diff --git a/libs/gui/BufferQueueCore.cpp b/libs/gui/BufferQueueCore.cpp
+index b515541..06b9ff6 100644
+--- a/libs/gui/BufferQueueCore.cpp
++++ b/libs/gui/BufferQueueCore.cpp
+@@ -26,6 +26,8 @@
+ #define VALIDATE_CONSISTENCY()
+ #endif
+ 
++#include <epoxy/egl.h>
++
+ #include <inttypes.h>
+ 
+ #include <cutils/atomic.h>
+@@ -40,6 +42,7 @@
+ 
+ #include <ui/BufferQueueDefs.h>
+ 
++
+ namespace android {
+ 
+ // Macros for include BufferQueueCore information in log messages
+diff --git a/libs/gui/BufferQueueProducer.cpp b/libs/gui/BufferQueueProducer.cpp
+index 7b9aaff..944bcbe 100644
+--- a/libs/gui/BufferQueueProducer.cpp
++++ b/libs/gui/BufferQueueProducer.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <epoxy/egl.h>
+ #include <inttypes.h>
+ #include <string>
+ 
+diff --git a/libs/gui/BufferQueueThreadState.cpp b/libs/gui/BufferQueueThreadState.cpp
+index 976c9b9..0343ef9 100644
+--- a/libs/gui/BufferQueueThreadState.cpp
++++ b/libs/gui/BufferQueueThreadState.cpp
+@@ -16,9 +16,13 @@
+ 
+ #ifndef NO_BINDER
+ #include <binder/IPCThreadState.h>
++#ifndef DROIDLET_HOST
+ #include <binderthreadstate/CallerUtils.h>
++#endif
+ #endif // NO_BINDER
++#ifndef DROIDLET_HOST
+ #include <hwbinder/IPCThreadState.h>
++#endif
+ #include <private/gui/BufferQueueThreadState.h>
+ #include <unistd.h>
+ 
+@@ -26,9 +30,11 @@ namespace android {
+ 
+ uid_t BufferQueueThreadState::getCallingUid() {
+ #ifndef NO_BINDER
++#ifndef DROIDLET_HOST
+     if (getCurrentServingCall() == BinderCallType::HWBINDER) {
+         return hardware::IPCThreadState::self()->getCallingUid();
+     }
++#endif
+     return IPCThreadState::self()->getCallingUid();
+ #else // NO_BINDER
+     return hardware::IPCThreadState::self()->getCallingUid();
+@@ -37,9 +43,11 @@ uid_t BufferQueueThreadState::getCallingUid() {
+ 
+ pid_t BufferQueueThreadState::getCallingPid() {
+ #ifndef NO_BINDER
++#ifndef DROIDLET_HOST
+     if (getCurrentServingCall() == BinderCallType::HWBINDER) {
+         return hardware::IPCThreadState::self()->getCallingPid();
+     }
++#endif
+     return IPCThreadState::self()->getCallingPid();
+ #else // NO_BINDER
+     return hardware::IPCThreadState::self()->getCallingPid();
+diff --git a/libs/gui/ConsumerBase.cpp b/libs/gui/ConsumerBase.cpp
+index 6886064..6a43847 100644
+--- a/libs/gui/ConsumerBase.cpp
++++ b/libs/gui/ConsumerBase.cpp
+@@ -25,8 +25,6 @@
+ #include <EGL/egl.h>
+ #include <EGL/eglext.h>
+ 
+-#include <hardware/hardware.h>
+-
+ #include <cutils/atomic.h>
+ 
+ #include <com_android_graphics_libgui_flags.h>
+diff --git a/libs/gui/DisplayEventReceiver.cpp b/libs/gui/DisplayEventReceiver.cpp
+index 69050ea..bfe28f3 100644
+--- a/libs/gui/DisplayEventReceiver.cpp
++++ b/libs/gui/DisplayEventReceiver.cpp
+@@ -17,8 +17,11 @@
+ #define LOG_TAG "DisplayEventReceiver"
+ 
+ #include <string.h>
++#include <sys/timerfd.h>
++#include <unistd.h>
+ 
+ #include <utils/Errors.h>
++#include <utils/Timers.h>
+ 
+ #include <gui/DisplayEventReceiver.h>
+ #include <gui/VsyncEventData.h>
+@@ -58,13 +61,26 @@ DisplayEventReceiver::DisplayEventReceiver(EventRegistrationFlags eventRegistrat
+             mInitError = status.transactionError();
+         }
+     }
++    if (mDataChannel == nullptr) {
++        // The in-process host composer does not implement display event
++        // connections.  Use a timerfd as a local 60 Hz vsync source.
++        mHostVsyncFd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
++        if (mHostVsyncFd >= 0) {
++            ALOGW("No display event connection; using host timer vsync");
++            mInitError = NO_ERROR;
++        }
++    }
+ }
+ 
+ DisplayEventReceiver::~DisplayEventReceiver() {
++    if (mHostVsyncFd >= 0) {
++        close(mHostVsyncFd);
++        mHostVsyncFd = -1;
++    }
+ }
+ 
+ status_t DisplayEventReceiver::initCheck() const {
+-    if (mDataChannel != nullptr) {
++    if (mDataChannel != nullptr || mHostVsyncFd >= 0) {
+         return NO_ERROR;
+     }
+     if (mInitError == NO_INIT && !mSurfaceflingerAlive) {
+@@ -74,6 +90,7 @@ status_t DisplayEventReceiver::initCheck() const {
+ }
+ 
+ int DisplayEventReceiver::getFd() const {
++    if (mHostVsyncFd >= 0) return mHostVsyncFd;
+     if (mDataChannel == nullptr) return mInitError;
+ 
+     return mDataChannel->getFd();
+@@ -83,6 +100,9 @@ status_t DisplayEventReceiver::setVsyncRate(uint32_t count) {
+     if (int32_t(count) < 0)
+         return BAD_VALUE;
+ 
++    if (mHostVsyncFd >= 0) {
++        return NO_ERROR;
++    }
+     if (mEventConnection != nullptr) {
+         mEventConnection->setVsyncRate(count);
+         return NO_ERROR;
+@@ -91,6 +111,11 @@ status_t DisplayEventReceiver::setVsyncRate(uint32_t count) {
+ }
+ 
+ status_t DisplayEventReceiver::requestNextVsync() {
++    if (mHostVsyncFd >= 0) {
++        itimerspec spec{};
++        spec.it_value.tv_nsec = 16666666;
++        return timerfd_settime(mHostVsyncFd, 0, &spec, nullptr) == 0 ? NO_ERROR : UNKNOWN_ERROR;
++    }
+     if (mEventConnection != nullptr) {
+         mEventConnection->requestNextVsync();
+         return NO_ERROR;
+@@ -100,6 +125,11 @@ status_t DisplayEventReceiver::requestNextVsync() {
+ 
+ status_t DisplayEventReceiver::getLatestVsyncEventData(
+         ParcelableVsyncEventData* outVsyncEventData) const {
++    if (mHostVsyncFd >= 0) {
++        if (outVsyncEventData == nullptr) return BAD_VALUE;
++        outVsyncEventData->vsync = VsyncEventData{};
++        return NO_ERROR;
++    }
+     if (mEventConnection != nullptr) {
+         auto status = mEventConnection->getLatestVsyncEventData(outVsyncEventData);
+         if (!status.isOk()) {
+@@ -113,6 +143,20 @@ status_t DisplayEventReceiver::getLatestVsyncEventData(
+ 
+ ssize_t DisplayEventReceiver::getEvents(DisplayEventReceiver::Event* events,
+         size_t count) {
++    if (mHostVsyncFd >= 0) {
++        uint64_t expirations = 0;
++        ssize_t n = read(mHostVsyncFd, &expirations, sizeof(expirations));
++        if (n != sizeof(expirations) || expirations == 0 || count == 0 || events == nullptr) {
++            return 0;
++        }
++        DisplayEventReceiver::Event event{};
++        event.header.type = DisplayEventType::DISPLAY_EVENT_VSYNC;
++        event.header.displayId = PhysicalDisplayId::fromPort(0);
++        event.header.timestamp = systemTime(SYSTEM_TIME_MONOTONIC);
++        event.vsync.count = ++mHostVsyncCount;
++        events[0] = event;
++        return 1;
++    }
+     return DisplayEventReceiver::getEvents(mDataChannel.get(), events, count);
+ }
+ 
+@@ -123,6 +167,9 @@ ssize_t DisplayEventReceiver::getEvents(gui::BitTube* dataChannel,
+ }
+ 
+ ssize_t DisplayEventReceiver::sendEvents(Event const* events, size_t count) {
++    if (mHostVsyncFd >= 0) {
++        return static_cast<ssize_t>(count);
++    }
+     return DisplayEventReceiver::sendEvents(mDataChannel.get(), events, count);
+ }
+ 
+diff --git a/libs/gui/FrameTimestamps.cpp b/libs/gui/FrameTimestamps.cpp
+index afb09de..a4690eb 100644
+--- a/libs/gui/FrameTimestamps.cpp
++++ b/libs/gui/FrameTimestamps.cpp
+@@ -18,7 +18,7 @@
+ 
+ #define LOG_TAG "FrameEvents"
+ 
+-#include <LibGuiProperties.sysprop.h>
++//#include <LibGuiProperties.sysprop.h>
+ #include <android-base/stringprintf.h>
+ #include <cutils/compiler.h>  // For CC_[UN]LIKELY
+ #include <inttypes.h>
+@@ -168,8 +168,8 @@ struct FrameNumberEqual {
+ 
+ }  // namespace
+ 
+-const size_t FrameEventHistory::INITIAL_MAX_FRAME_HISTORY =
+-        sysprop::LibGuiProperties::frame_event_history_size().value_or(8);
++const size_t FrameEventHistory::INITIAL_MAX_FRAME_HISTORY = 8;
++        //sysprop::LibGuiProperties::frame_event_history_size().value_or(8);
+ 
+ FrameEventHistory::FrameEventHistory()
+       : mFrames(std::vector<FrameEvents>(INITIAL_MAX_FRAME_HISTORY)) {}
+diff --git a/libs/gui/GLConsumer.cpp b/libs/gui/GLConsumer.cpp
+index 403a639..0b9527f 100644
+--- a/libs/gui/GLConsumer.cpp
++++ b/libs/gui/GLConsumer.cpp
+@@ -23,14 +23,13 @@
+ 
+ #include <inttypes.h>
+ 
+-#include <EGL/egl.h>
+-#include <EGL/eglext.h>
++#include <epoxy/egl.h>
++//#include <EGL/egl.h>
++//#include <EGL/eglext.h>
+ #include <GLES2/gl2.h>
+ #include <GLES2/gl2ext.h>
+ #include <cutils/compiler.h>
+ 
+-#include <hardware/hardware.h>
+-
+ #include <math/mat4.h>
+ 
+ #include <gui/BufferItem.h>
+diff --git a/libs/gui/IGraphicBufferProducer.cpp b/libs/gui/IGraphicBufferProducer.cpp
+index 77415c6..5767db1 100644
+--- a/libs/gui/IGraphicBufferProducer.cpp
++++ b/libs/gui/IGraphicBufferProducer.cpp
+@@ -33,19 +33,10 @@
+ 
+ #include <gui/IGraphicBufferProducer.h>
+ #include <gui/IProducerListener.h>
+-#include <gui/bufferqueue/1.0/H2BGraphicBufferProducer.h>
+-#include <gui/bufferqueue/2.0/H2BGraphicBufferProducer.h>
+ 
+ namespace android {
+ // ----------------------------------------------------------------------------
+ 
+-using H2BGraphicBufferProducerV1_0 =
+-        ::android::hardware::graphics::bufferqueue::V1_0::utils::
+-        H2BGraphicBufferProducer;
+-using H2BGraphicBufferProducerV2_0 =
+-        ::android::hardware::graphics::bufferqueue::V2_0::utils::
+-        H2BGraphicBufferProducer;
+-
+ enum {
+     REQUEST_BUFFER = IBinder::FIRST_CALL_TRANSACTION,
+     DEQUEUE_BUFFER,
+@@ -870,193 +861,7 @@ public:
+ // translation unit (see clang warning -Wweak-vtables)
+ BpGraphicBufferProducer::~BpGraphicBufferProducer() {}
+ 
+-class HpGraphicBufferProducer : public HpInterface<
+-        BpGraphicBufferProducer,
+-        H2BGraphicBufferProducerV1_0,
+-        H2BGraphicBufferProducerV2_0> {
+-public:
+-    explicit HpGraphicBufferProducer(const sp<IBinder>& base) : PBase(base) {}
+-
+-    status_t getConfigForSurface(SurfaceConfig* outConfig) override {
+-        return mBase->getConfigForSurface(outConfig);
+-    }
+-
+-    status_t requestBuffer(int slot, sp<GraphicBuffer>* buf) override {
+-        return mBase->requestBuffer(slot, buf);
+-    }
+-
+-    status_t requestBuffers(
+-            const std::vector<int32_t>& slots,
+-            std::vector<RequestBufferOutput>* outputs) override {
+-        return mBase->requestBuffers(slots, outputs);
+-    }
+-
+-    status_t setMaxDequeuedBufferCount(int maxDequeuedBuffers) override {
+-        return mBase->setMaxDequeuedBufferCount(maxDequeuedBuffers);
+-    }
+-
+-    status_t setAsyncMode(bool async) override {
+-        return mBase->setAsyncMode(async);
+-    }
+-
+-    status_t dequeueBuffer(int* slot, sp<Fence>* fence, uint32_t w, uint32_t h, PixelFormat format,
+-                           uint64_t usage, uint64_t* outBufferAge,
+-                           FrameEventHistoryDelta* outTimestamps) override {
+-        return mBase->dequeueBuffer(slot, fence, w, h, format, usage, outBufferAge, outTimestamps);
+-    }
+-
+-    status_t dequeueBuffers(
+-            const std::vector<DequeueBufferInput>& inputs,
+-            std::vector<DequeueBufferOutput>* outputs) override {
+-        return mBase->dequeueBuffers(inputs, outputs);
+-    }
+-
+-    status_t detachBuffer(int slot) override {
+-        return mBase->detachBuffer(slot);
+-    }
+-
+-    status_t detachBuffers(const std::vector<int32_t>& slots,
+-                           std::vector<status_t>* results) override {
+-        return mBase->detachBuffers(slots, results);
+-    }
+-
+-    status_t detachNextBuffer(
+-            sp<GraphicBuffer>* outBuffer, sp<Fence>* outFence) override {
+-        return mBase->detachNextBuffer(outBuffer, outFence);
+-    }
+-
+-    status_t attachBuffer(
+-            int* outSlot, const sp<GraphicBuffer>& buffer) override {
+-        return mBase->attachBuffer(outSlot, buffer);
+-    }
+-
+-    status_t attachBuffers(
+-            const std::vector<sp<GraphicBuffer>>& buffers,
+-            std::vector<AttachBufferOutput>* outputs) override {
+-        return mBase->attachBuffers(buffers, outputs);
+-    }
+-
+-    status_t queueBuffer(
+-            int slot,
+-            const QueueBufferInput& input,
+-            QueueBufferOutput* output) override {
+-        return mBase->queueBuffer(slot, input, output);
+-    }
+-
+-    status_t queueBuffers(const std::vector<QueueBufferInput>& inputs,
+-                          std::vector<QueueBufferOutput>* outputs) override {
+-        return mBase->queueBuffers(inputs, outputs);
+-    }
+-
+-    status_t cancelBuffer(int slot, const sp<Fence>& fence) override {
+-        return mBase->cancelBuffer(slot, fence);
+-    }
+-
+-    status_t cancelBuffers(
+-            const std::vector<CancelBufferInput>& inputs,
+-            std::vector<status_t>* results) override {
+-        return mBase->cancelBuffers(inputs, results);
+-    }
+-
+-    int query(int what, int* value) override {
+-        return mBase->query(what, value);
+-    }
+-
+-    status_t query(const std::vector<int32_t>& inputs, std::vector<QueryOutput>* outputs) override {
+-        return mBase->query(inputs, outputs);
+-    }
+-
+-    status_t connect(
+-            const sp<IProducerListener>& listener,
+-            int api, bool producerControlledByApp,
+-            QueueBufferOutput* output) override {
+-        return mBase->connect(listener, api, producerControlledByApp, output);
+-    }
+-
+-    status_t disconnect(
+-            int api, DisconnectMode mode = DisconnectMode::Api) override {
+-        return mBase->disconnect(api, mode);
+-    }
+-
+-    status_t setSidebandStream(const sp<NativeHandle>& stream) override {
+-        return mBase->setSidebandStream(stream);
+-    }
+-
+-    void allocateBuffers(uint32_t width, uint32_t height,
+-            PixelFormat format, uint64_t usage) override {
+-        return mBase->allocateBuffers(width, height, format, usage);
+-    }
+-
+-    status_t allowAllocation(bool allow) override {
+-        return mBase->allowAllocation(allow);
+-    }
+-
+-    status_t setGenerationNumber(uint32_t generationNumber) override {
+-        return mBase->setGenerationNumber(generationNumber);
+-    }
+-
+-    String8 getConsumerName() const override {
+-        return mBase->getConsumerName();
+-    }
+-
+-    status_t setSharedBufferMode(bool sharedBufferMode) override {
+-        return mBase->setSharedBufferMode(sharedBufferMode);
+-    }
+-
+-    status_t setAutoRefresh(bool autoRefresh) override {
+-        return mBase->setAutoRefresh(autoRefresh);
+-    }
+-
+-    status_t setDequeueTimeout(nsecs_t timeout) override {
+-        return mBase->setDequeueTimeout(timeout);
+-    }
+-
+-    status_t extendSlotCount(int size) override { return mBase->extendSlotCount(size); }
+-
+-    status_t setLegacyBufferDrop(bool drop) override {
+-        return mBase->setLegacyBufferDrop(drop);
+-    }
+-
+-    status_t getLastQueuedBuffer(
+-            sp<GraphicBuffer>* outBuffer,
+-            sp<Fence>* outFence,
+-            float outTransformMatrix[16]) override {
+-        return mBase->getLastQueuedBuffer(
+-                outBuffer, outFence, outTransformMatrix);
+-    }
+-
+-    status_t getLastQueuedBuffer(sp<GraphicBuffer>* outBuffer, sp<Fence>* outFence, Rect* outRect,
+-                                 uint32_t* outTransform) override {
+-        return mBase->getLastQueuedBuffer(outBuffer, outFence, outRect, outTransform);
+-    }
+-
+-    void getFrameTimestamps(FrameEventHistoryDelta* outDelta) override {
+-        return mBase->getFrameTimestamps(outDelta);
+-    }
+-
+-    status_t getUniqueId(uint64_t* outId) const override {
+-        return mBase->getUniqueId(outId);
+-    }
+-
+-    status_t getConsumerUsage(uint64_t* outUsage) const override {
+-        return mBase->getConsumerUsage(outUsage);
+-    }
+-
+-    status_t setAutoPrerotation(bool autoPrerotation) override {
+-        return mBase->setAutoPrerotation(autoPrerotation);
+-    }
+-
+-#if COM_ANDROID_GRAPHICS_LIBGUI_FLAGS(BQ_EXTENDEDALLOCATE)
+-    status_t setAdditionalOptions(const std::vector<gui::AdditionalOptions>& options) override {
+-        return mBase->setAdditionalOptions(options);
+-    }
+-#endif
+-
+-    status_t setPresentMode(int32_t mode) override { return mBase->setPresentMode(mode); }
+-};
+-
+-IMPLEMENT_HYBRID_META_INTERFACE(GraphicBufferProducer,
+-        "android.gui.IGraphicBufferProducer");
++IMPLEMENT_META_INTERFACE(GraphicBufferProducer, "android.gui.IGraphicBufferProducer");
+ 
+ // ----------------------------------------------------------------------
+ 
+diff --git a/libs/gui/IProducerListener.cpp b/libs/gui/IProducerListener.cpp
+index 6b53fff..18f31fd 100644
+--- a/libs/gui/IProducerListener.cpp
++++ b/libs/gui/IProducerListener.cpp
+@@ -15,8 +15,6 @@
+  */
+ 
+ #include <binder/Parcel.h>
+-#include <gui/bufferqueue/1.0/H2BProducerListener.h>
+-#include <gui/bufferqueue/2.0/H2BProducerListener.h>
+ #include <gui/IProducerListener.h>
+ 
+ namespace android {
+@@ -124,28 +122,7 @@ public:
+ // translation unit (see clang warning -Wweak-vtables)
+ BpProducerListener::~BpProducerListener() {}
+ 
+-class HpProducerListener : public HpInterface<
+-        BpProducerListener,
+-        hardware::graphics::bufferqueue::V1_0::utils::H2BProducerListener,
+-        hardware::graphics::bufferqueue::V2_0::utils::H2BProducerListener> {
+-public:
+-    explicit HpProducerListener(const sp<IBinder>& base) : PBase{base} {}
+-
+-    virtual void onBufferReleased() override {
+-        mBase->onBufferReleased();
+-    }
+-
+-    virtual bool needsReleaseNotify() override {
+-        return mBase->needsReleaseNotify();
+-    }
+-
+-    virtual void onBuffersDiscarded(const std::vector<int32_t>& discardedSlots) override {
+-        return mBase->onBuffersDiscarded(discardedSlots);
+-    }
+-};
+-
+-IMPLEMENT_HYBRID_META_INTERFACE(ProducerListener,
+-        "android.gui.IProducerListener")
++IMPLEMENT_META_INTERFACE(ProducerListener, "android.gui.IProducerListener");
+ 
+ status_t BnProducerListener::onTransact(uint32_t code, const Parcel& data,
+         Parcel* reply, uint32_t flags) {
+diff --git a/libs/gui/Surface.cpp b/libs/gui/Surface.cpp
+index 45e332d..2c71916 100644
+--- a/libs/gui/Surface.cpp
++++ b/libs/gui/Surface.cpp
+@@ -35,7 +35,6 @@
+ #include <gui/AidlUtil.h>
+ #include <gui/ISurfaceComposer.h>
+ #include <gui/LayerState.h>
+-#include <gui/bufferqueue/2.0/H2BGraphicBufferProducer.h>
+ #include <private/gui/ComposerService.h>
+ #include <private/gui/ComposerServiceAIDL.h>
+ #endif
+@@ -209,22 +208,6 @@ sp<Surface> Surface::from(ANativeWindow* anw) {
+     return sp<Surface>::fromExisting(static_cast<Surface*>(anw));
+ }
+ 
+-#ifndef NO_BINDER
+-sp<Surface> Surface::fromHidl(
+-        const sp<hardware::graphics::bufferqueue::V2_0::IGraphicBufferProducer>& token) {
+-    if (token == nullptr) {
+-        return nullptr;
+-    }
+-    using H2BGraphicBufferProducer =
+-            hardware::graphics::bufferqueue::V2_0::utils::H2BGraphicBufferProducer;
+-    sp<IGraphicBufferProducer> bufferProducer = sp<H2BGraphicBufferProducer>::make(token);
+-    if (bufferProducer == nullptr) {
+-        return nullptr;
+-    }
+-    return sp<Surface>::make(bufferProducer);
+-}
+-#endif
+-
+ sp<Surface> Surface::createEvilTwin() {
+     ATRACE_CALL();
+     std::scoped_lock _l(mMutex);
+@@ -2753,6 +2736,21 @@ int Surface::setBuffersUserDimensions(uint32_t width, uint32_t height)
+ int Surface::setBuffersFormat(PixelFormat format)
+ {
+     SURF_LOGV("Surface::setBuffersFormat");
++    // Apps take this format from EGL_NATIVE_VISUAL_ID.  On Android that is a
++    // HAL pixel format, but the host EGL is Mesa and returns a host visual id
++    // or a DRM fourcc (SDL's sample gets 33 / HAL_PIXEL_FORMAT_BLOB, the
++    // unmapped Wayland path gets "RG16").  The host gralloc only backs the
++    // RGB(A) formats; anything else cannot describe a window buffer, so use
++    // RGBA_8888, which is what an Android EGL config would have produced.
++    if (bytesPerPixel(format) == 0) {
++        static bool warned = false;
++        if (!warned) {
++            warned = true;
++            ALOGW("window buffer format 0x%x is not a host pixel format; using RGBA_8888",
++                  static_cast<int>(format));
++        }
++        format = PIXEL_FORMAT_RGBA_8888;
++    }
+ 
+     Mutex::Autolock lock(mMutex);
+     if (format != mReqFormat) {
+diff --git a/libs/gui/include/gui/DisplayEventReceiver.h b/libs/gui/include/gui/DisplayEventReceiver.h
+index 3b29656..0ffd6b5 100644
+--- a/libs/gui/include/gui/DisplayEventReceiver.h
++++ b/libs/gui/include/gui/DisplayEventReceiver.h
+@@ -204,6 +204,11 @@ private:
+     std::unique_ptr<gui::BitTube> mDataChannel;
+     status_t mInitError = NO_INIT;
+     bool mSurfaceflingerAlive;
++    // Host fallback: when SurfaceFlinger cannot provide a display event
++    // connection, deliver a timer-driven vsync pulse so native renderers
++    // (for example Flutter's AChoreographer) still get frame callbacks.
++    int mHostVsyncFd = -1;
++    uint32_t mHostVsyncCount = 0;
+ };
+ 
+ inline bool operator==(DisplayEventReceiver::Event::FrameRateOverride lhs,
+diff --git a/libs/gui/include/gui/FenceMonitor.h b/libs/gui/include/gui/FenceMonitor.h
+index c1904b9..caafa02 100644
+--- a/libs/gui/include/gui/FenceMonitor.h
++++ b/libs/gui/include/gui/FenceMonitor.h
+@@ -19,6 +19,7 @@
+ #include <cstdint>
+ #include <deque>
+ #include <mutex>
++#include <condition_variable>
+ 
+ #include <ui/Fence.h>
+ 
+@@ -49,4 +50,4 @@ private:
+     std::mutex mMutex;
+ };
+ 
+-} // namespace android::gui
+\ No newline at end of file
++} // namespace android::gui
+diff --git a/libs/gui/include/gui/IGraphicBufferProducer.h b/libs/gui/include/gui/IGraphicBufferProducer.h
+index f3ba836..8cdbb81 100644
+--- a/libs/gui/include/gui/IGraphicBufferProducer.h
++++ b/libs/gui/include/gui/IGraphicBufferProducer.h
+@@ -25,6 +25,7 @@
+ #include <utils/RefBase.h>
+ 
+ #include <binder/IInterface.h>
++#include <binder/Parcel.h>
+ 
+ #include <android/native_window.h>
+ #include <system/window.h>
+@@ -39,9 +40,6 @@
+ #include <gui/FrameTimestamps.h>
+ #include <gui/HdrMetadata.h>
+ 
+-#include <hidl/HybridInterface.h>
+-#include <android/hardware/graphics/bufferqueue/1.0/IGraphicBufferProducer.h>
+-#include <android/hardware/graphics/bufferqueue/2.0/IGraphicBufferProducer.h>
+ 
+ #include <optional>
+ #include <vector>
+@@ -55,13 +53,6 @@ class IProducerListener;
+ class NativeHandle;
+ class Surface;
+ 
+-using HGraphicBufferProducerV1_0 =
+-        ::android::hardware::graphics::bufferqueue::V1_0::
+-        IGraphicBufferProducer;
+-using HGraphicBufferProducerV2_0 =
+-        ::android::hardware::graphics::bufferqueue::V2_0::
+-        IGraphicBufferProducer;
+-
+ /*
+  * This class defines the Binder IPC interface for the producer side of
+  * a queue of graphics buffers.  It's used to send graphics data from one
+@@ -86,9 +77,7 @@ using HGraphicBufferProducerV2_0 =
+  */
+ #ifndef NO_BINDER
+ class IGraphicBufferProducer : public IInterface {
+-    DECLARE_HYBRID_META_INTERFACE(GraphicBufferProducer,
+-                                  HGraphicBufferProducerV1_0,
+-                                  HGraphicBufferProducerV2_0)
++    DECLARE_META_INTERFACE(GraphicBufferProducer)
+ #else
+ class IGraphicBufferProducer : public RefBase {
+ #endif
+diff --git a/libs/gui/include/gui/IProducerListener.h b/libs/gui/include/gui/IProducerListener.h
+index 189aaa4..8dc6c13 100644
+--- a/libs/gui/include/gui/IProducerListener.h
++++ b/libs/gui/include/gui/IProducerListener.h
+@@ -19,10 +19,7 @@
+ 
+ #include <vector>
+ 
+-#include <android/hardware/graphics/bufferqueue/1.0/IProducerListener.h>
+-#include <android/hardware/graphics/bufferqueue/2.0/IProducerListener.h>
+ #include <binder/IInterface.h>
+-#include <hidl/HybridInterface.h>
+ #include <utils/RefBase.h>
+ 
+ #include <com_android_graphics_libgui_flags.h>
+@@ -79,14 +76,7 @@ public:
+ class IProducerListener : public ProducerListener, public IInterface
+ {
+ public:
+-    using HProducerListener1 =
+-            ::android::hardware::graphics::bufferqueue::V1_0::IProducerListener;
+-    using HProducerListener2 =
+-            ::android::hardware::graphics::bufferqueue::V2_0::IProducerListener;
+-    DECLARE_HYBRID_META_INTERFACE(
+-            ProducerListener,
+-            HProducerListener1,
+-            HProducerListener2)
++    DECLARE_META_INTERFACE(ProducerListener)
+ };
+ 
+ class BnProducerListener : public BnInterface<IProducerListener>
+diff --git a/libs/gui/include/gui/RenderCommandBuffer.h b/libs/gui/include/gui/RenderCommandBuffer.h
+index 7b783e5..bc0a86f 100644
+--- a/libs/gui/include/gui/RenderCommandBuffer.h
++++ b/libs/gui/include/gui/RenderCommandBuffer.h
+@@ -15,7 +15,7 @@
+  */
+ 
+ #pragma once
+-
++#include <cstring>
+ #include <gui/LocklessStaticQueue.h>
+ #include <gui/MagicRingBuffer.h>
+ #include <log/log.h>
+diff --git a/libs/gui/include/gui/Surface.h b/libs/gui/include/gui/Surface.h
+index d372eac..63f6bee 100644
+--- a/libs/gui/include/gui/Surface.h
++++ b/libs/gui/include/gui/Surface.h
+@@ -198,14 +198,6 @@ public:
+      */
+     static sp<Surface> from(ANativeWindow* anw);
+ 
+-    /*
+-     * creates a Surface from a HIDL IGraphicBufferProducer token (v2.0).
+-     */
+-#ifndef NO_BINDER
+-    static sp<Surface> fromHidl(
+-            const sp<hardware::graphics::bufferqueue::V2_0::IGraphicBufferProducer>& token);
+-#endif
+-
+     /**
+      * This function should be avoided at all costs.
+      *
+diff --git a/libs/gui/include/gui/SurfaceComposerClient.h b/libs/gui/include/gui/SurfaceComposerClient.h
+index 068c080..2524f7b 100644
+--- a/libs/gui/include/gui/SurfaceComposerClient.h
++++ b/libs/gui/include/gui/SurfaceComposerClient.h
+@@ -23,6 +23,7 @@
+ #include <thread>
+ #include <unordered_map>
+ #include <unordered_set>
++#include <condition_variable>
+ 
+ #include <android-base/result.h>
+ #include <binder/IBinder.h>
+diff --git a/libs/input/Input.cpp b/libs/input/Input.cpp
+index f90b415..ab62533 100644
+--- a/libs/input/Input.cpp
++++ b/libs/input/Input.cpp
+@@ -17,6 +17,7 @@
+ #define LOG_TAG "Input"
+ //#define LOG_NDEBUG 0
+ 
++#include <cstdint>
+ #include <attestation/HmacKeyManager.h>
+ #include <cutils/compiler.h>
+ #include <inttypes.h>
+diff --git a/libs/input/InputConsumer.cpp b/libs/input/InputConsumer.cpp
+index e92c5d0..d79db87 100644
+--- a/libs/input/InputConsumer.cpp
++++ b/libs/input/InputConsumer.cpp
+@@ -36,7 +36,7 @@
+ #include <cutils/properties.h>
+ #include <ftl/enum.h>
+ #include <log/log.h>
+-#include <statslog_input.h>
++//#include <statslog_input.h>
+ #include <utils/Trace.h>
+ 
+ #include <input/InputConsumer.h>
+@@ -311,11 +311,11 @@ InputConsumer::ConsumeResult InputConsumer::consume(InputEventFactoryInterface*
+                                 // Failed to finish the input message, so adding to
+                                 // unfinishedInputMessages vector to be retried by the caller.
+                                 unfinishedInputMessages.push_back(msg);
+-                                android::input::
+-                                        stats_write(android::input::
+-                                                            INPUT_UNFINISHED_MOTION_EVENT_REPORTED,
+-                                                    mMsg.body.motion.source,
+-                                                    mMsg.body.motion.action, status);
++                                //android::input::
++                                //        stats_write(android::input::
++                                //                            INPUT_UNFINISHED_MOTION_EVENT_REPORTED,
++                                //                    mMsg.body.motion.source,
++                                //                    mMsg.body.motion.action, status);
+                             }
+                         }
+                         batch.samples.erase(batch.samples.begin(), batch.samples.begin() + count);
+@@ -339,15 +339,28 @@ InputConsumer::ConsumeResult InputConsumer::consume(InputEventFactoryInterface*
+                     }
+                 }
+ 
+-                // Start a new batch if needed.
++                // Deliver moves immediately instead of holding them in a
++                // batch.  droidlet has no InputDispatcher process and its app
++                // surfaces render on the caller's frame cadence, so a pending
++                // batch would only reach the app when the gesture ends (UP).
++                // Drag-based apps then see a single move at the release point
++                // and cannot steer.  Raw, unbatched moves also avoid the
++                // resampler's frame-time interpolation changing coordinates
++                // under apps that read only the latest sample.  The consumer
++                // still tracks touch state for the non-batched paths.
+                 if (mMsg.body.motion.action == AMOTION_EVENT_ACTION_MOVE ||
+                     mMsg.body.motion.action == AMOTION_EVENT_ACTION_HOVER_MOVE) {
+-                    Batch batch;
+-                    batch.samples.push_back(mMsg);
+-                    mBatches.push_back(batch);
++                    MotionEvent* moveEvent = factory->createMotionEvent();
++                    if (!moveEvent) {
++                        return ConsumeResult{android::base::Error(NO_MEMORY),
++                                             unfinishedInputMessages};
++                    }
++                    initializeMotionEvent(*moveEvent, mMsg);
++                    *outSeq = mMsg.header.seq;
++                    *outEvent = moveEvent;
+                     ALOGD_IF(DEBUG_TRANSPORT_CONSUMER,
+-                             "channel '%s' consumer ~ started batch event",
+-                             mChannel->getName().c_str());
++                             "channel '%s' consumer ~ consumed unbatched move, seq=%u",
++                             mChannel->getName().c_str(), *outSeq);
+                     break;
+                 }
+ 
+diff --git a/libs/input/InputTransport.cpp b/libs/input/InputTransport.cpp
+index 504477c..7d4799c 100644
+--- a/libs/input/InputTransport.cpp
++++ b/libs/input/InputTransport.cpp
+@@ -538,7 +538,7 @@ sp<IBinder> InputChannel::getConnectionToken() const {
+ // --- InputPublisher ---
+ 
+ InputPublisher::InputPublisher(std::unique_ptr<InputChannel> channel)
+-      : mChannel(std::move(channel)), mInputVerifier(mChannel->getName()) {}
++      : mChannel(std::move(channel)) {}//, mInputVerifier(mChannel->getName()) {}
+ 
+ InputPublisher::~InputPublisher() {
+ }
+@@ -665,16 +665,16 @@ status_t InputPublisher::publishMotionEvent(
+     }
+     const status_t status = mChannel->sendMessage(&msg);
+ 
+-    if (status == OK && verifyEvents()) {
+-        Result<bool> result =
+-                mInputVerifier.processMovement(deviceId, eventTime, source, action, actionButton,
+-                                               pointerCount, pointerProperties, pointerCoords,
+-                                               flags, buttonState, downTime);
+-        if (!result.ok()) {
+-            LOG(ERROR) << "Bad stream: " << result.error();
+-            return BAD_VALUE;
+-        }
+-    }
++    //if (status == OK && verifyEvents()) {
++    //    Result<bool> result =
++    //            mInputVerifier.processMovement(deviceId, eventTime, source, action, actionButton,
++    //                                           pointerCount, pointerProperties, pointerCoords,
++    //                                           flags, buttonState, downTime);
++    //    if (!result.ok()) {
++    //        LOG(ERROR) << "Bad stream: " << result.error();
++    //        return BAD_VALUE;
++    //    }
++    //}
+     return status;
+ }
+ 
+diff --git a/libs/nativedisplay/surfacetexture/EGLConsumer.cpp b/libs/nativedisplay/surfacetexture/EGLConsumer.cpp
+index 9737750..4a256c6 100644
+--- a/libs/nativedisplay/surfacetexture/EGLConsumer.cpp
++++ b/libs/nativedisplay/surfacetexture/EGLConsumer.cpp
+@@ -19,8 +19,9 @@
+ #define GL_GLEXT_PROTOTYPES
+ #define EGL_EGLEXT_PROTOTYPES
+ 
+-#include <EGL/egl.h>
+-#include <EGL/eglext.h>
++#include <epoxy/egl.h>
++//#include <EGL/egl.h>
++//#include <EGL/eglext.h>
+ #include <GLES2/gl2.h>
+ #include <GLES2/gl2ext.h>
+ #include <cutils/compiler.h>
+diff --git a/libs/nativedisplay/surfacetexture/ImageConsumer.cpp b/libs/nativedisplay/surfacetexture/ImageConsumer.cpp
+index 18a2341..283470d 100644
+--- a/libs/nativedisplay/surfacetexture/ImageConsumer.cpp
++++ b/libs/nativedisplay/surfacetexture/ImageConsumer.cpp
+@@ -17,8 +17,9 @@
+ // #define LOG_NDEBUG 0
+ 
+ #define EGL_EGLEXT_PROTOTYPES
+-#include <EGL/egl.h>
+-#include <EGL/eglext.h>
++#include <epoxy/egl.h>
++//#include <EGL/egl.h>
++//#include <EGL/eglext.h>
+ 
+ #include <gui/BufferQueue.h>
+ #include <ui/GraphicBuffer.h>
+diff --git a/libs/nativedisplay/surfacetexture/LegacyEGLConsumer.cpp b/libs/nativedisplay/surfacetexture/LegacyEGLConsumer.cpp
+index 8272861..26a2755 100644
+--- a/libs/nativedisplay/surfacetexture/LegacyEGLConsumer.cpp
++++ b/libs/nativedisplay/surfacetexture/LegacyEGLConsumer.cpp
+@@ -17,8 +17,9 @@
+ #define GL_GLEXT_PROTOTYPES
+ #define EGL_EGLEXT_PROTOTYPES
+ 
+-#include <EGL/egl.h>
+-#include <EGL/eglext.h>
++#include <epoxy/egl.h>
++//#include <EGL/egl.h>
++//#include <EGL/eglext.h>
+ #include <GLES2/gl2.h>
+ #include <GLES2/gl2ext.h>
+ #include <cutils/compiler.h>
+diff --git a/libs/nativewindow/AHardwareBuffer.cpp b/libs/nativewindow/AHardwareBuffer.cpp
+index fa71a78..d775345 100644
+--- a/libs/nativewindow/AHardwareBuffer.cpp
++++ b/libs/nativewindow/AHardwareBuffer.cpp
+@@ -32,7 +32,7 @@
+ #include <system/graphics.h>
+ 
+ #include <private/android/AHardwareBufferHelpers.h>
+-#include <android/hardware/graphics/common/1.1/types.h>
++#include <aidl/android/hardware/graphics/common/BufferUsage.h>
+ #include <aidl/android/hardware/graphics/common/PixelFormat.h>
+ 
+ static constexpr int kFdBufferSize = 128 * sizeof(int);  // 128 ints
+@@ -784,38 +784,38 @@ int32_t AHardwareBuffer_getDataSpace(AHardwareBuffer* buffer) {
+ }
+ 
+ uint64_t AHardwareBuffer_convertToGrallocUsageBits(uint64_t usage) {
+-    using android::hardware::graphics::common::V1_1::BufferUsage;
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_NEVER == (uint64_t)BufferUsage::CPU_READ_NEVER,
++    using AidlBufferUsage = aidl::android::hardware::graphics::common::BufferUsage;
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_NEVER == (uint64_t)AidlBufferUsage::CPU_READ_NEVER,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_RARELY == (uint64_t)BufferUsage::CPU_READ_RARELY,
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_RARELY == (uint64_t)AidlBufferUsage::CPU_READ_RARELY,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN == (uint64_t)BufferUsage::CPU_READ_OFTEN,
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN == (uint64_t)AidlBufferUsage::CPU_READ_OFTEN,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_NEVER == (uint64_t)BufferUsage::CPU_WRITE_NEVER,
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_NEVER == (uint64_t)AidlBufferUsage::CPU_WRITE_NEVER,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY == (uint64_t)BufferUsage::CPU_WRITE_RARELY,
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_RARELY == (uint64_t)AidlBufferUsage::CPU_WRITE_RARELY,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN == (uint64_t)BufferUsage::CPU_WRITE_OFTEN,
++    static_assert(AHARDWAREBUFFER_USAGE_CPU_WRITE_OFTEN == (uint64_t)AidlBufferUsage::CPU_WRITE_OFTEN,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE == (uint64_t)BufferUsage::GPU_TEXTURE,
++    static_assert(AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE == (uint64_t)AidlBufferUsage::GPU_TEXTURE,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER == (uint64_t)BufferUsage::GPU_RENDER_TARGET,
++    static_assert(AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER == (uint64_t)AidlBufferUsage::GPU_RENDER_TARGET,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT == (uint64_t)BufferUsage::PROTECTED,
++    static_assert(AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT == (uint64_t)AidlBufferUsage::PROTECTED,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_VIDEO_ENCODE == (uint64_t)BufferUsage::VIDEO_ENCODER,
++    static_assert(AHARDWAREBUFFER_USAGE_VIDEO_ENCODE == (uint64_t)AidlBufferUsage::VIDEO_ENCODER,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER == (uint64_t)BufferUsage::GPU_DATA_BUFFER,
++    static_assert(AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER == (uint64_t)AidlBufferUsage::GPU_DATA_BUFFER,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_SENSOR_DIRECT_DATA == (uint64_t)BufferUsage::SENSOR_DIRECT_DATA,
++    static_assert(AHARDWAREBUFFER_USAGE_SENSOR_DIRECT_DATA == (uint64_t)AidlBufferUsage::SENSOR_DIRECT_DATA,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP == (uint64_t)BufferUsage::GPU_CUBE_MAP,
++    static_assert(AHARDWAREBUFFER_USAGE_GPU_CUBE_MAP == (uint64_t)AidlBufferUsage::GPU_CUBE_MAP,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_GPU_MIPMAP_COMPLETE == (uint64_t)BufferUsage::GPU_MIPMAP_COMPLETE,
++    static_assert(AHARDWAREBUFFER_USAGE_GPU_MIPMAP_COMPLETE == (uint64_t)AidlBufferUsage::GPU_MIPMAP_COMPLETE,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CAMERA_WRITE == (uint64_t)BufferUsage::CAMERA_OUTPUT,
++    static_assert(AHARDWAREBUFFER_USAGE_CAMERA_WRITE == (uint64_t)AidlBufferUsage::CAMERA_OUTPUT,
+             "gralloc and AHardwareBuffer flags don't match");
+-    static_assert(AHARDWAREBUFFER_USAGE_CAMERA_READ == (uint64_t)BufferUsage::CAMERA_INPUT,
++    static_assert(AHARDWAREBUFFER_USAGE_CAMERA_READ == (uint64_t)AidlBufferUsage::CAMERA_INPUT,
+             "gralloc and AHardwareBuffer flags don't match");
+     return usage;
+ }
+diff --git a/libs/nativewindow/ANativeWindow.cpp b/libs/nativewindow/ANativeWindow.cpp
+index 2fb80be..1959446 100644
+--- a/libs/nativewindow/ANativeWindow.cpp
++++ b/libs/nativewindow/ANativeWindow.cpp
+@@ -16,7 +16,6 @@
+ 
+ #define LOG_TAG "ANativeWindow"
+ 
+-#include <grallocusage/GrallocUsageConversion.h>
+ // from nativewindow/includes/system/window.h
+ // (not to be confused with the compatibility-only window.h from system/core/includes)
+ #include <system/window.h>
+diff --git a/libs/shaders/shaders.cpp b/libs/shaders/shaders.cpp
+index 2fa798d..4a383b4 100644
+--- a/libs/shaders/shaders.cpp
++++ b/libs/shaders/shaders.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <cstring>
+ #include <shaders/shaders.h>
+ 
+ #include <tonemap/tonemap.h>
+diff --git a/libs/tonemap/tonemap.cpp b/libs/tonemap/tonemap.cpp
+index 19e1eea..3f3c9af 100644
+--- a/libs/tonemap/tonemap.cpp
++++ b/libs/tonemap/tonemap.cpp
+@@ -14,6 +14,7 @@
+  * limitations under the License.
+  */
+ 
++#include <cstring>
+ #include <tonemap/tonemap.h>
+ 
+ #include <algorithm>
+diff --git a/libs/ui/DebugUtils.cpp b/libs/ui/DebugUtils.cpp
+index a0e131f..2f0fa20 100644
+--- a/libs/ui/DebugUtils.cpp
++++ b/libs/ui/DebugUtils.cpp
+@@ -22,6 +22,7 @@
+ #include <android-base/stringprintf.h>
+ #include <hardware/gralloc.h>
+ #include <string>
++#include <sstream>
+ 
+ using android::base::StringPrintf;
+ using android::ui::ColorMode;
+diff --git a/libs/ui/DependencyMonitor.cpp b/libs/ui/DependencyMonitor.cpp
+index b7e490e..1dec821 100644
+--- a/libs/ui/DependencyMonitor.cpp
++++ b/libs/ui/DependencyMonitor.cpp
+@@ -110,7 +110,7 @@ void DependencyMonitor::DependencyBlock::checkUnsafeAccess() const {
+     ALOGV_IF(Fence::isValidTimestamp(egressTime) && Fence::isValidTimestamp(ingressTime) &&
+                      egressTime < ingressTime,
+              "%" PRId64 "/%s: Detected egress before ingress!: %" PRId64 " (%s) < %" PRId64 " (%s)",
+-             id, token, egressTime, egress.annotation, ingressTime, ingress.annotation.c_str());
++             id, token, egressTime, egress.annotation.c_str(), ingressTime, ingress.annotation.c_str());
+ 
+     for (auto& accessCompletion : accessCompletions) {
+         const nsecs_t accessCompletionTime = accessCompletion.fence->getCachedSignalTime();
+@@ -141,4 +141,4 @@ void DependencyMonitor::DependencyBlock::checkUnsafeAccess() const {
+              ingress.annotation.c_str());
+ }
+ 
+-} // namespace android
+\ No newline at end of file
++} // namespace android
+diff --git a/libs/ui/Gralloc4.cpp b/libs/ui/Gralloc4.cpp
+index 2a60730..5dd5114 100644
+--- a/libs/ui/Gralloc4.cpp
++++ b/libs/ui/Gralloc4.cpp
+@@ -554,8 +554,13 @@ status_t Gralloc4Mapper::getLayerCount(buffer_handle_t bufferHandle,
+ 
+ status_t Gralloc4Mapper::getPixelFormatRequested(buffer_handle_t bufferHandle,
+                                                  ui::PixelFormat* outPixelFormatRequested) const {
+-    return get(bufferHandle, gralloc4::MetadataType_PixelFormatRequested,
+-               gralloc4::decodePixelFormatRequested, outPixelFormatRequested);
++    hardware::graphics::common::V1_2::PixelFormat requested;
++    status_t error = get(bufferHandle, gralloc4::MetadataType_PixelFormatRequested,
++                         gralloc4::decodePixelFormatRequested, &requested);
++    if (error == NO_ERROR && outPixelFormatRequested != nullptr) {
++        *outPixelFormatRequested = static_cast<ui::PixelFormat>(requested);
++    }
++    return error;
+ }
+ 
+ status_t Gralloc4Mapper::getPixelFormatFourCC(buffer_handle_t bufferHandle,
+@@ -788,7 +793,7 @@ status_t Gralloc4Mapper::bufferDumpHelper(const BufferDump& bufferDump, std::ost
+     uint64_t width;
+     uint64_t height;
+     uint64_t layerCount;
+-    ui::PixelFormat pixelFormatRequested;
++    hardware::graphics::common::V1_2::PixelFormat pixelFormatRequested;
+     uint32_t pixelFormatFourCC;
+     uint64_t pixelFormatModifier;
+     uint64_t usage;
+diff --git a/libs/ui/Gralloc5.cpp b/libs/ui/Gralloc5.cpp
+index d4ec87d..2c3a3b9 100644
+--- a/libs/ui/Gralloc5.cpp
++++ b/libs/ui/Gralloc5.cpp
+@@ -1060,4 +1060,4 @@ status_t Gralloc5Mapper::setSmpte2094_50(buffer_handle_t bufferHandle,
+                                                                    smpte2094_50);
+ }
+ 
+-} // namespace android
+\ No newline at end of file
++} // namespace android
+diff --git a/libs/ui/GraphicBuffer.cpp b/libs/ui/GraphicBuffer.cpp
+index 873b039..66de2ae 100644
+--- a/libs/ui/GraphicBuffer.cpp
++++ b/libs/ui/GraphicBuffer.cpp
+@@ -21,7 +21,6 @@
+ 
+ #include <cutils/atomic.h>
+ 
+-#include <grallocusage/GrallocUsageConversion.h>
+ #include <sync/sync.h>
+ #include <ui/GraphicBufferAllocator.h>
+ #include <ui/GraphicBufferMapper.h>
+@@ -399,8 +398,12 @@ status_t GraphicBuffer::lockAsync(uint64_t inProducerUsage, uint64_t inConsumerU
+         }
+     }
+ 
+-    const uint64_t usage = static_cast<uint64_t>(ANDROID_NATIVE_UNSIGNED_CAST(
+-            android_convertGralloc1To0Usage(inProducerUsage, inConsumerUsage)));
++    // droidlet always uses the GRALLOC_HOST mapper, which ignores the usage
++    // mask.  Pass the consumer usage through instead of converting the
++    // gralloc1-era producer/consumer bits to the legacy gralloc0 mask, so
++    // libui does not need to link libgrallocusage.
++    (void)inProducerUsage;
++    const uint64_t usage = inConsumerUsage;
+ 
+     auto result = getBufferMapper().lock(handle, usage, rect, base::unique_fd{fenceFd});
+ 
+diff --git a/libs/ui/GraphicBufferAllocator.cpp b/libs/ui/GraphicBufferAllocator.cpp
+index 0eb67e2..1fa0e3f 100644
+--- a/libs/ui/GraphicBufferAllocator.cpp
++++ b/libs/ui/GraphicBufferAllocator.cpp
+@@ -24,8 +24,9 @@
+ 
+ #include <limits.h>
+ #include <stdio.h>
++#include <format>
+ 
+-#include <grallocusage/GrallocUsageConversion.h>
++//#include <grallocusage/GrallocUsageConversion.h>
+ 
+ #include <android-base/stringprintf.h>
+ #include <log/log.h>
+@@ -33,10 +34,13 @@
+ #include <utils/Trace.h>
+ 
+ #include <ui/Gralloc.h>
++#ifndef DROIDLET_HOST_GRALLOC
+ #include <ui/Gralloc2.h>
+ #include <ui/Gralloc3.h>
+ #include <ui/Gralloc4.h>
+ #include <ui/Gralloc5.h>
++#endif
++#include <ui/GrallocHost.h>
+ #include <ui/GraphicBufferMapper.h>
+ 
+ namespace android {
+@@ -53,10 +57,15 @@ KeyedVector<buffer_handle_t,
+ 
+ GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::getInstance()) {
+     switch (mMapper.getMapperVersion()) {
+-        case GraphicBufferMapper::GRALLOC_5:
+-            mAllocator = std::make_unique<const Gralloc5Allocator>(
+-                    reinterpret_cast<const Gralloc5Mapper&>(mMapper.getGrallocMapper()));
++#ifdef DROIDLET_HOST_GRALLOC
++        case GraphicBufferMapper::GRALLOC_HOST:
++            mAllocator = std::make_unique<const GrallocHostAllocator>();
+             break;
++#else
++        //case GraphicBufferMapper::GRALLOC_5:
++        //    mAllocator = std::make_unique<const Gralloc5Allocator>(
++        //            reinterpret_cast<const Gralloc5Mapper&>(mMapper.getGrallocMapper()));
++        //    break;
+         case GraphicBufferMapper::GRALLOC_4:
+             mAllocator = std::make_unique<const Gralloc4Allocator>(
+                     reinterpret_cast<const Gralloc4Mapper&>(mMapper.getGrallocMapper()));
+@@ -69,6 +78,10 @@ GraphicBufferAllocator::GraphicBufferAllocator() : mMapper(GraphicBufferMapper::
+             mAllocator = std::make_unique<const Gralloc2Allocator>(
+                     reinterpret_cast<const Gralloc2Mapper&>(mMapper.getGrallocMapper()));
+             break;
++#endif
++        default:
++            LOG_ALWAYS_FATAL("Unsupported gralloc mapper version %d",
++                             mMapper.getMapperVersion());
+     }
+     LOG_ALWAYS_FATAL_IF(!mAllocator->isLoaded(),
+                         "Failed to load matching allocator for mapper version %d",
+diff --git a/libs/ui/GraphicBufferMapper.cpp b/libs/ui/GraphicBufferMapper.cpp
+index 91c760e..1e493b8 100644
+--- a/libs/ui/GraphicBufferMapper.cpp
++++ b/libs/ui/GraphicBufferMapper.cpp
+@@ -20,7 +20,7 @@
+ 
+ #include <ui/GraphicBufferMapper.h>
+ 
+-#include <grallocusage/GrallocUsageConversion.h>
++//#include <grallocusage/GrallocUsageConversion.h>
+ 
+ #include <com_android_graphics_libui_flags.h>
+ 
+@@ -35,10 +35,13 @@
+ #include <utils/Trace.h>
+ 
+ #include <ui/Gralloc.h>
++#ifndef DROIDLET_HOST_GRALLOC
+ #include <ui/Gralloc2.h>
+ #include <ui/Gralloc3.h>
+ #include <ui/Gralloc4.h>
+ #include <ui/Gralloc5.h>
++#endif
++#include <ui/GrallocHost.h>
+ #include <ui/GraphicBuffer.h>
+ 
+ #include <system/graphics.h>
+@@ -53,25 +56,39 @@ using LockResult = GraphicBufferMapper::LockResult;
+ 
+ ANDROID_SINGLETON_STATIC_INSTANCE( GraphicBufferMapper )
+ 
++#ifndef DROIDLET_HOST_GRALLOC
+ static bool requireMapper4() {
+-    return android_get_device_api_level() >= 36 && flags::require_gralloc4_or_newer();
++    return true;
++    //return android_get_device_api_level() >= 36 && flags::require_gralloc4_or_newer();
+ }
++#endif
+ 
+ void GraphicBufferMapper::preloadHal() {
++#ifdef DROIDLET_HOST_GRALLOC
++    // The host backend is a plain C++ object; there is no HAL to preload.
++    return;
++#else
+     if (!requireMapper4()) {
+         Gralloc2Mapper::preload();
+         Gralloc3Mapper::preload();
+     }
+     Gralloc4Mapper::preload();
+-    Gralloc5Mapper::preload();
++    //Gralloc5Mapper::preload();
++#endif
+ }
+ 
+ GraphicBufferMapper::GraphicBufferMapper() {
+-    mMapper = std::make_unique<const Gralloc5Mapper>();
+-    if (mMapper->isLoaded()) {
+-        mMapperVersion = Version::GRALLOC_5;
+-        return;
+-    }
++#ifdef DROIDLET_HOST_GRALLOC
++    mMapper = std::make_unique<const GrallocHostMapper>();
++    mMapperVersion = Version::GRALLOC_HOST;
++    LOG_ALWAYS_FATAL_IF(!mMapper->isLoaded(), "host gralloc mapper failed to load");
++    return;
++#else
++    //mMapper = std::make_unique<const Gralloc5Mapper>();
++    //if (mMapper->isLoaded()) {
++    //    mMapperVersion = Version::GRALLOC_5;
++    //    return;
++    //}
+     mMapper = std::make_unique<const Gralloc4Mapper>();
+     if (mMapper->isLoaded()) {
+         mMapperVersion = Version::GRALLOC_4;
+@@ -91,6 +108,7 @@ GraphicBufferMapper::GraphicBufferMapper() {
+     }
+ 
+     LOG_ALWAYS_FATAL("gralloc-mapper is missing");
++#endif
+ }
+ 
+ void GraphicBufferMapper::dumpBuffer(buffer_handle_t bufferHandle, std::string& result,
+@@ -216,14 +234,14 @@ status_t GraphicBufferMapper::lockAsync(buffer_handle_t handle, uint32_t usage,
+     return OK;
+ }
+ 
+-status_t GraphicBufferMapper::lockAsync(buffer_handle_t handle, uint64_t producerUsage,
+-                                        uint64_t consumerUsage, const Rect& bounds, void** vaddr,
+-                                        int fenceFd) {
+-    return lockAsync(handle,
+-                     ANDROID_NATIVE_UNSIGNED_CAST(
+-                             android_convertGralloc1To0Usage(producerUsage, consumerUsage)),
+-                     bounds, vaddr, fenceFd);
+-}
++//status_t GraphicBufferMapper::lockAsync(buffer_handle_t handle, uint64_t producerUsage,
++//                                        uint64_t consumerUsage, const Rect& bounds, void** vaddr,
++//                                        int fenceFd) {
++//    return lockAsync(handle,
++//                     ANDROID_NATIVE_UNSIGNED_CAST(
++//                             android_convertGralloc1To0Usage(producerUsage, consumerUsage)),
++//                     bounds, vaddr, fenceFd);
++//}
+ 
+ status_t GraphicBufferMapper::lockAsyncYCbCr(buffer_handle_t handle, uint32_t usage,
+                                              const Rect& bounds, android_ycbcr* ycbcr,
+diff --git a/libs/ui/include/ui/GraphicBufferMapper.h b/libs/ui/include/ui/GraphicBufferMapper.h
+index 6ae1a7a..d220eaf 100644
+--- a/libs/ui/include/ui/GraphicBufferMapper.h
++++ b/libs/ui/include/ui/GraphicBufferMapper.h
+@@ -21,6 +21,7 @@
+ #include <sys/types.h>
+ 
+ #include <memory>
++#include <optional>
+ 
+ #include <android-base/unique_fd.h>
+ #include <ui/GraphicTypes.h>
+@@ -54,6 +55,9 @@ public:
+         GRALLOC_3,
+         GRALLOC_4,
+         GRALLOC_5,
++        // droidlet's in-process host backend (memfd today, dma-buf later).  It
++        // sits above GRALLOC_4 so plane-layout based callers keep working.
++        GRALLOC_HOST,
+     };
+     static void preloadHal();
+     static inline GraphicBufferMapper& get() { return getInstance(); }
+diff --git a/libs/ui/include/ui/GraphicTypes.h b/libs/ui/include/ui/GraphicTypes.h
+index 1775d39..04ce4a0 100644
+--- a/libs/ui/include/ui/GraphicTypes.h
++++ b/libs/ui/include/ui/GraphicTypes.h
+@@ -24,9 +24,8 @@
+ #include <aidl/android/hardware/graphics/common/Interlaced.h>
+ #include <aidl/android/hardware/graphics/common/PlaneLayout.h>
+ #include <aidl/android/hardware/graphics/common/Smpte2086.h>
+-#include <android/hardware/graphics/common/1.1/types.h>
+-#include <android/hardware/graphics/common/1.2/types.h>
+ #include <system/graphics.h>
++#include <ui/GraphicTypesHost.h>
+ 
+ namespace android {
+ 
+@@ -36,15 +35,6 @@ namespace android {
+  */
+ namespace ui {
+ 
+-/**
+- * The following HIDL types should be moved to their stable AIDL
+- * equivalents when composer moves to stable AIDL.
+- */
+-using android::hardware::graphics::common::V1_1::RenderIntent;
+-using android::hardware::graphics::common::V1_2::ColorMode;
+-using android::hardware::graphics::common::V1_2::Dataspace;
+-using android::hardware::graphics::common::V1_2::PixelFormat;
+-
+ /**
+  * Stable AIDL types
+  */
+diff --git a/libs/ui/include/ui/PixelFormat.h b/libs/ui/include/ui/PixelFormat.h
+index fea46db..8a8e93c 100644
+--- a/libs/ui/include/ui/PixelFormat.h
++++ b/libs/ui/include/ui/PixelFormat.h
+@@ -25,7 +25,8 @@
+ #ifndef UI_PIXELFORMAT_H
+ #define UI_PIXELFORMAT_H
+ 
+-#include <hardware/hardware.h>
++#include <system/graphics-base.h>
++#include <stdint.h>
+ 
+ namespace android {
+ 
+diff --git a/libs/ui/include/ui/Rect.h b/libs/ui/include/ui/Rect.h
+index 2307b44..3fec0eb 100644
+--- a/libs/ui/include/ui/Rect.h
++++ b/libs/ui/include/ui/Rect.h
+@@ -18,6 +18,7 @@
+ #define ANDROID_UI_RECT
+ 
+ #include <ostream>
++#include <cmath>
+ 
+ #include <log/log.h>
+ #include <utils/Flattenable.h>

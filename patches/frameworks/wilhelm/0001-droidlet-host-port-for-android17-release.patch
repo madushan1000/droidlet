@@ -1,0 +1,764 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: OpenCode Bot <opencode@example.com>
+Date: Mon, 16 Nov 2026 16:00:50 +0000
+Subject: [PATCH] droidlet: host port for android17-release
+
+---
+ src/MPH_to.c                 |   4 +-
+ src/data.cpp                 |  30 ++--
+ src/data.h                   |   2 +-
+ src/desktop/OutputMixExt.h   |  13 ++
+ src/desktop/SDL.cpp          |  12 +-
+ src/desktop/SndFile.cpp      |   2 +-
+ src/itf/IEngine.cpp          |  13 +-
+ src/itf/IOutputMixExt.cpp    | 333 +++++++++++++++++++++++++----------
+ src/itf/IPlay.cpp            |   3 +
+ src/objects/CAudioPlayer.cpp |   2 +-
+ src/sles.cpp                 |  12 ++
+ 11 files changed, 310 insertions(+), 116 deletions(-)
+
+diff --git a/src/MPH_to.c b/src/MPH_to.c
+index 070c84e..2f9048a 100644
+--- a/src/MPH_to.c
++++ b/src/MPH_to.c
+@@ -84,8 +84,10 @@ const signed char MPH_to_AudioPlayer[MPH_MAX] = {
+     [MPH_ANDROIDEFFECT] = 26,
+     [MPH_ANDROIDEFFECTSEND] = 27,
+     [MPH_ANDROIDCONFIGURATION] = 28,
++    [MPH_ANDROIDBUFFERQUEUESOURCE] = 29,
++#endif
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     [MPH_ANDROIDSIMPLEBUFFERQUEUE] = 7,  // alias for [MPH_BUFFERQUEUE]
+-    [MPH_ANDROIDBUFFERQUEUESOURCE] = 29
+ #endif
+ #else
+ #include "MPH_to_AudioPlayer.h"
+diff --git a/src/data.cpp b/src/data.cpp
+index fc6dffc..2b6684d 100644
+--- a/src/data.cpp
++++ b/src/data.cpp
+@@ -19,6 +19,8 @@
+ #include "sles_allinclusive.h"
+ #ifdef ANDROID  // FIXME This file should be portable
+ #include "android/channels.h"
++#endif
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+ #include "data.h"
+ #endif
+ 
+@@ -47,7 +49,7 @@ static SLresult checkDataLocator(const char *name, void *pLocator, DataLocator *
+             break;
+ 
+         case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+         // This is an alias that is _not_ converted; the rest of the code must check for both
+         // locator types. That's because it is only an alias for audio players, not audio recorder
+         // objects so we have to remember the distinction.
+@@ -212,7 +214,7 @@ static SLresult checkDataLocator(const char *name, void *pLocator, DataLocator *
+             }
+             break;
+ 
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+         case SL_DATALOCATOR_ANDROIDFD:
+         {
+             pDataLocator->mFD = *(SLDataLocator_AndroidFD *)pLocator;
+@@ -268,7 +270,7 @@ static SLresult checkDataLocator(const char *name, void *pLocator, DataLocator *
+         case SL_DATALOCATOR_MIDIBUFFERQUEUE:
+             actualMask = 1L << locatorType;
+             break;
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+         case SL_DATALOCATOR_ANDROIDFD:
+         case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+         case SL_DATALOCATOR_ANDROIDBUFFERQUEUE:
+@@ -320,7 +322,7 @@ static void freeDataLocator(DataLocator *pDataLocator)
+             pDataLocator->mOutputMix.outputMix = NULL;
+         }
+         break;
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDBUFFERQUEUE:
+     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+     case SL_DATALOCATOR_ANDROIDFD:
+@@ -619,14 +621,14 @@ SLresult checkSourceSinkVsInterfacesCompatibility(const DataLocatorFormat *pSrcD
+     int index;
+     switch (pSrcDataLocatorFormat->mLocator.mLocatorType) {
+     case SL_DATALOCATOR_URI:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDFD:
+ #endif
+         // URIs and FD can be sources when "playing" to an OutputMix or a Buffer Queue for decode
+         // so we don't prevent the retrieval of the BufferQueue interfaces for those sources
+         switch (pSinkDataLocatorFormat->mLocator.mLocatorType) {
+         case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+         case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+ #endif
+             break;
+@@ -634,13 +636,13 @@ SLresult checkSourceSinkVsInterfacesCompatibility(const DataLocatorFormat *pSrcD
+             // can't require SLBufferQueueItf or its alias SLAndroidSimpleBufferQueueItf
+             // if the data sink is not a buffer queue
+             index = clazz->mMPH_to_index[MPH_BUFFERQUEUE];
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+             assert(index == clazz->mMPH_to_index[MPH_ANDROIDSIMPLEBUFFERQUEUE]);
+ #endif
+             if (0 <= index) {
+                 if (requiredMask & (1 << index)) {
+                     SL_LOGE("can't require SL_IID_BUFFERQUEUE "
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                             "or SL_IID_ANDROIDSIMPLEBUFFERQUEUE "
+ #endif
+                             "with a non-buffer queue data sink");
+@@ -652,7 +654,7 @@ SLresult checkSourceSinkVsInterfacesCompatibility(const DataLocatorFormat *pSrcD
+         break;
+ 
+     case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+ #endif
+         // can't require SLSeekItf if data source is a buffer queue
+@@ -675,7 +677,7 @@ SLresult checkSourceSinkVsInterfacesCompatibility(const DataLocatorFormat *pSrcD
+         }
+         break;
+ 
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDBUFFERQUEUE:
+         // can't require SLSeekItf if data source is an Android buffer queue
+         index = clazz->mMPH_to_index[MPH_SEEK];
+@@ -709,13 +711,13 @@ SLresult checkSourceSinkVsInterfacesCompatibility(const DataLocatorFormat *pSrcD
+         // can't require SLBufferQueueItf or its alias SLAndroidSimpleBufferQueueItf
+         // if the data source is not a buffer queue
+         index = clazz->mMPH_to_index[MPH_BUFFERQUEUE];
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+         assert(index == clazz->mMPH_to_index[MPH_ANDROIDSIMPLEBUFFERQUEUE]);
+ #endif
+         if (0 <= index) {
+             if (requiredMask & (1 << index)) {
+                 SL_LOGE("can't require SL_IID_BUFFERQUEUE "
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                         "or SL_IID_ANDROIDSIMPLEBUFFERQUEUE "
+ #endif
+                         "with a non-buffer queue data source");
+@@ -800,7 +802,7 @@ SLresult checkDataSource(const char *name, const SLDataSource *pDataSrc,
+     case XA_DATALOCATOR_NATIVEDISPLAY:
+         allowedDataFormatMask = DATAFORMAT_MASK_NONE;
+         break;
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDFD:
+         allowedDataFormatMask &= DATAFORMAT_MASK_MIME;
+         break;
+@@ -878,7 +880,7 @@ SLresult checkDataSink(const char *name, const SLDataSink *pDataSink,
+     case SL_DATALOCATOR_MIDIBUFFERQUEUE:
+         allowedDataFormatMask &= DATAFORMAT_MASK_NULL;
+         break;
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDFD:
+         allowedDataFormatMask = DATAFORMAT_MASK_NONE;
+         break;
+diff --git a/src/data.h b/src/data.h
+index 8c68583..ab26b98 100644
+--- a/src/data.h
++++ b/src/data.h
+@@ -28,7 +28,7 @@ typedef union {
+     SLDataLocator_OutputMix mOutputMix;
+     SLDataLocator_URI mURI;
+     XADataLocator_NativeDisplay mNativeDisplay;
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     SLDataLocator_AndroidFD mFD;
+     SLDataLocator_AndroidBufferQueue mABQ;
+ #endif
+diff --git a/src/desktop/OutputMixExt.h b/src/desktop/OutputMixExt.h
+index aa4e3d9..6311b73 100644
+--- a/src/desktop/OutputMixExt.h
++++ b/src/desktop/OutputMixExt.h
+@@ -41,6 +41,19 @@ typedef struct {
+     SLuint32 mAvail;        ///< Number of available bytes in the current buffer
+     float mGains[STEREO_CHANNELS]; ///< Copied from CAudioPlayer::mGains
+     SLuint32 mFramesMixed;  ///< Number of sample frames mixed from track; reset periodically
++
++    // Host build: the desktop mixer always produces 44.1 kHz stereo 16-bit PCM, so
++    // tracks with other formats are converted while they are read.
++    SLuint32 mSampleRateMilliHz;    ///< Source sample rate
++    SLuint32 mNumChannels;          ///< 1 or 2
++    SLuint32 mContainerSize;        ///< Source container size in bits (8, 16, 24, 32)
++    SLuint32 mRepresentation;       ///< SL_ANDROID_PCM_REPRESENTATION_*
++    SLuint32 mFrameBytes;           ///< Bytes per source frame
++    double mResamplePos;            ///< Fractional position between mPrevFrame and mNextFrame
++    short mPrevFrame[STEREO_CHANNELS];
++    short mNextFrame[STEREO_CHANNELS];
++    SLboolean mHavePrev;
++    SLboolean mHaveNext;
+ } Track;
+ 
+ extern SLresult IOutputMixExt_checkAudioPlayerSourceSink(CAudioPlayer *thiz);
+diff --git a/src/desktop/SDL.cpp b/src/desktop/SDL.cpp
+index edc27c9..6969e11 100644
+--- a/src/desktop/SDL.cpp
++++ b/src/desktop/SDL.cpp
+@@ -17,6 +17,7 @@
+ /** \file SDL.c SDL platform implementation */
+ 
+ #include "sles_allinclusive.h"
++#include <SDL/SDL.h>
+ 
+ 
+ /** \brief Called by SDL to fill the next audio output buffer */
+@@ -57,8 +58,15 @@ void SDL_open(IEngine *thisEngine)
+     fmt.userdata = (void *) thisEngine;
+ 
+     if (SDL_OpenAudio(&fmt, NULL) < 0) {
+-        SL_LOGE("Unable to open audio: %s", SDL_GetError());
+-        exit(EXIT_FAILURE);
++        // Audio is optional: fall back to SDL's silent dummy driver so the mixer
++        // still runs and apps keep accurate timing when the host has no playback
++        // device (for example in a headless CI container).
++        SL_LOGE("Unable to open audio: %s; falling back to the dummy driver", SDL_GetError());
++        SDL_QuitSubSystem(SDL_INIT_AUDIO);
++        setenv("SDL_AUDIODRIVER", "dummy", 1);
++        if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0 || SDL_OpenAudio(&fmt, NULL) < 0) {
++            SL_LOGE("Unable to open dummy audio: %s", SDL_GetError());
++        }
+     }
+ }
+ 
+diff --git a/src/desktop/SndFile.cpp b/src/desktop/SndFile.cpp
+index 91d0e03..88008a3 100644
+--- a/src/desktop/SndFile.cpp
++++ b/src/desktop/SndFile.cpp
+@@ -141,7 +141,7 @@ SLresult SndFile_checkAudioPlayerSourceSink(CAudioPlayer *thiz)
+     SLuint32 formatType = *(SLuint32 *)pAudioSrc->pFormat;
+     switch (locatorType) {
+     case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+ #endif
+         break;
+diff --git a/src/itf/IEngine.cpp b/src/itf/IEngine.cpp
+index be2d2b0..e6a65d6 100644
+--- a/src/itf/IEngine.cpp
++++ b/src/itf/IEngine.cpp
+@@ -253,6 +253,9 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+ #ifdef ANDROID
+                             | DATALOCATOR_MASK_ANDROIDFD | DATALOCATOR_MASK_ANDROIDSIMPLEBUFFERQUEUE
+                             | DATALOCATOR_MASK_ANDROIDBUFFERQUEUE
++#elif defined(USE_ANDROID_COMPAT)
++                            | DATALOCATOR_MASK_ANDROIDFD
++                            | DATALOCATOR_MASK_ANDROIDSIMPLEBUFFERQUEUE
+ #endif
+                             , DATAFORMAT_MASK_MIME | DATAFORMAT_MASK_PCM | DATAFORMAT_MASK_PCM_EX);
+ 
+@@ -262,12 +265,12 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+ 
+                     result = checkDataSink("pAudioSnk", pAudioSnk, &thiz->mDataSink,
+                             DATALOCATOR_MASK_OUTPUTMIX                  // for playback
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                             | DATALOCATOR_MASK_ANDROIDSIMPLEBUFFERQUEUE // for decode to a BQ
+                             | DATALOCATOR_MASK_BUFFERQUEUE              // for decode to a BQ
+ #endif
+                             , DATAFORMAT_MASK_NULL
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                             | DATAFORMAT_MASK_PCM | DATAFORMAT_MASK_PCM_EX  // for decode to PCM
+ #endif
+                             );
+@@ -296,7 +299,7 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+                     //  will cause usesAdvancedBufferHeaders and usesSimpleBufferQueue to be true
+                     switch (thiz->mDataSource.mLocator.mLocatorType) {
+                     case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+ #endif
+                         usesSimpleBufferQueue = true;
+@@ -318,7 +321,7 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+                         nbBuffers = 0;
+                         break;
+                     }
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+                     switch (thiz->mDataSink.mLocator.mLocatorType) {
+                     case SL_DATALOCATOR_BUFFERQUEUE:
+                     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+@@ -354,6 +357,7 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+ #ifdef USE_SNDFILE
+                     result = SndFile_checkAudioPlayerSourceSink(thiz);
+                     if (SL_RESULT_SUCCESS != result) {
++                        SL_LOGE("SndFile: unsupported source or sink, result=%u", result);
+                         break;
+                     }
+ #endif
+@@ -361,6 +365,7 @@ static SLresult IEngine_CreateAudioPlayer(SLEngineItf self, SLObjectItf *pPlayer
+ #ifdef USE_OUTPUTMIXEXT
+                     result = IOutputMixExt_checkAudioPlayerSourceSink(thiz);
+                     if (SL_RESULT_SUCCESS != result) {
++                        SL_LOGE("OutputMixExt: unsupported source or sink, result=%u", result);
+                         break;
+                     }
+ #endif
+diff --git a/src/itf/IOutputMixExt.cpp b/src/itf/IOutputMixExt.cpp
+index 7a72d28..76df3b6 100644
+--- a/src/itf/IOutputMixExt.cpp
++++ b/src/itf/IOutputMixExt.cpp
+@@ -40,6 +40,8 @@ typedef enum {
+ } Summary;
+ 
+ 
++static void track_reset_converter(Track *track);
++
+ /** \brief Check whether a track has any data for us to read */
+ 
+ static SLboolean track_check(Track *track)
+@@ -62,6 +64,12 @@ static SLboolean track_check(Track *track)
+             track->mFramesMixed = 0;
+             audioPlayer->mPlay.mFramesSinceLastSeek += framesMixed;
+             audioPlayer->mPlay.mFramesSincePositionUpdate += framesMixed;
++            SLuint32 sampleRateMilliHz = audioPlayer->mSampleRateMilliHz;
++            if (UNKNOWN_SAMPLERATE != sampleRateMilliHz) {
++                audioPlayer->mPlay.mPosition = (SLmillisecond)
++                    (((long long) audioPlayer->mPlay.mFramesSinceLastSeek * 1000000LL) /
++                        sampleRateMilliHz) + audioPlayer->mPlay.mLastSeekPosition;
++            }
+         }
+ 
+         SLboolean doBroadcast = SL_BOOLEAN_FALSE;
+@@ -77,6 +85,7 @@ static SLboolean track_check(Track *track)
+             audioPlayer->mBufferQueue.mClearRequested = SL_BOOLEAN_FALSE;
+             track->mReader = NULL;
+             track->mAvail = 0;
++            track_reset_converter(track);
+             doBroadcast = SL_BOOLEAN_TRUE;
+         }
+ 
+@@ -143,6 +152,7 @@ static SLboolean track_check(Track *track)
+ 
+         case SL_PLAYSTATE_STOPPED:  // idle
+         case SL_PLAYSTATE_PAUSED:   // idle
++            track_reset_converter(track);
+             break;
+ 
+         default:
+@@ -164,6 +174,180 @@ broadcast:
+ }
+ 
+ 
++/** Output rate of the desktop mixer, in milliHz. */
++
++#define OUTPUT_SAMPLE_RATE_MILLIHZ 44100000
++
++/** Reset the host format conversion state for a track. */
++
++static void track_reset_converter(Track *track)
++{
++    track->mResamplePos = 0.0;
++    track->mHavePrev = SL_BOOLEAN_FALSE;
++    track->mHaveNext = SL_BOOLEAN_FALSE;
++    track->mPrevFrame[0] = 0;
++    track->mPrevFrame[1] = 0;
++    track->mNextFrame[0] = 0;
++    track->mNextFrame[1] = 0;
++}
++
++/** Convert one sample in the track's source format to signed 16-bit PCM. */
++
++static short track_convert_sample(const SLuint8 *src, SLuint32 containerSize,
++        SLuint32 representation)
++{
++    switch (containerSize) {
++    case 8: {
++        // 8-bit PCM is unsigned, with 128 as the midpoint
++        return (short) (((int) src[0] - 128) << 8);
++    }
++    case 16: {
++        SLint16 value;
++        memcpy(&value, src, sizeof(value));
++        return value;
++    }
++    case 24: {
++        // sign-extend a little-endian 24-bit sample, then keep the top 16 bits
++        SLint32 value = (SLint32) (((SLuint32) src[0] << 8) | ((SLuint32) src[1] << 16) |
++                ((SLuint32) src[2] << 24));
++        return (short) (value >> 16);
++    }
++    case 32: {
++        if (SL_ANDROID_PCM_REPRESENTATION_FLOAT == representation) {
++            float value;
++            memcpy(&value, src, sizeof(value));
++            if (value > 1.0f) {
++                value = 1.0f;
++            } else if (value < -1.0f) {
++                value = -1.0f;
++            }
++            return (short) lrintf(value * 32767.0f);
++        } else {
++            SLint32 value;
++            memcpy(&value, src, sizeof(value));
++            return (short) (value >> 16);
++        }
++    }
++    default:
++        return 0;
++    }
++}
++
++/** Advance to the next source buffer, invoking the application callback.
++ *  Returns true if more data is available. */
++
++static SLboolean track_advance_buffer(Track *track)
++{
++    CAudioPlayer *audioPlayer = track->mAudioPlayer;
++    IBufferQueue *bufferQueue = &audioPlayer->mBufferQueue;
++    interface_lock_exclusive(bufferQueue);
++    const BufferHeader *oldFront = bufferQueue->mFront;
++    const BufferHeader *rear = bufferQueue->mRear;
++    // a buffer stays on queue while playing, so it better still be there
++    assert(oldFront != rear);
++    const BufferHeader *newFront = oldFront;
++    if (++newFront == &bufferQueue->mArray[bufferQueue->mNumBuffers + 1]) {
++        newFront = bufferQueue->mArray;
++    }
++    bufferQueue->mFront = (BufferHeader *) newFront;
++    assert(0 < bufferQueue->mState.count);
++    --bufferQueue->mState.count;
++    SLboolean more = SL_BOOLEAN_FALSE;
++    if (newFront != rear) {
++        assert(0 < bufferQueue->mState.count);
++        track->mReader = newFront->mBuffer;
++        track->mAvail = newFront->mSize;
++        more = SL_BOOLEAN_TRUE;
++    } else {
++        track->mReader = NULL;
++        track->mAvail = 0;
++    }
++    ++bufferQueue->mState.playIndex;
++    slBufferQueueCallback callback = bufferQueue->mCallback;
++    void *context = bufferQueue->mContext;
++    interface_unlock_exclusive(bufferQueue);
++    if (NULL != callback) {
++        (*callback)((SLBufferQueueItf) bufferQueue, context);
++        if (!more) {
++            // the callback may have enqueued more data
++            interface_lock_shared(bufferQueue);
++            if (bufferQueue->mFront != bufferQueue->mRear) {
++                track->mReader = bufferQueue->mFront->mBuffer;
++                track->mAvail = bufferQueue->mFront->mSize;
++                more = SL_BOOLEAN_TRUE;
++            }
++            interface_unlock_shared(bufferQueue);
++        }
++    }
++    return more;
++}
++
++/** Read one source frame from the track, converting it to stereo 16-bit. */
++
++static SLboolean track_read_frame(Track *track)
++{
++    while (track->mAvail < track->mFrameBytes) {
++        if (0 != track->mAvail) {
++            // discard a partial frame at the end of a malformed buffer
++            track->mAvail = 0;
++        }
++        if (NULL == track->mReader) {
++            return SL_BOOLEAN_FALSE;
++        }
++        if (!track_advance_buffer(track)) {
++            return SL_BOOLEAN_FALSE;
++        }
++    }
++    const SLuint8 *src = (const SLuint8 *) track->mReader;
++    short left = track_convert_sample(src, track->mContainerSize, track->mRepresentation);
++    short right = left;
++    if (track->mNumChannels >= 2) {
++        right = track_convert_sample(src + track->mContainerSize / 8, track->mContainerSize,
++                track->mRepresentation);
++    }
++    track->mNextFrame[0] = left;
++    track->mNextFrame[1] = right;
++    track->mReader = src + track->mFrameBytes;
++    track->mAvail -= track->mFrameBytes;
++    ++track->mFramesMixed;
++    return SL_BOOLEAN_TRUE;
++}
++
++/** Produce one 44.1 kHz stereo 16-bit frame from the track source. */
++
++static SLboolean track_resample_frame(Track *track, short out[STEREO_CHANNELS])
++{
++    if (!track->mHaveNext) {
++        if (!track_read_frame(track)) {
++            return SL_BOOLEAN_FALSE;
++        }
++        if (!track->mHavePrev) {
++            track->mPrevFrame[0] = track->mNextFrame[0];
++            track->mPrevFrame[1] = track->mNextFrame[1];
++            track->mHavePrev = SL_BOOLEAN_TRUE;
++        }
++        track->mHaveNext = SL_BOOLEAN_TRUE;
++    }
++
++    double phase = track->mResamplePos;
++    out[0] = (short) (track->mPrevFrame[0] +
++            (track->mNextFrame[0] - track->mPrevFrame[0]) * phase);
++    out[1] = (short) (track->mPrevFrame[1] +
++            (track->mNextFrame[1] - track->mPrevFrame[1]) * phase);
++
++    track->mResamplePos += (double) track->mSampleRateMilliHz / OUTPUT_SAMPLE_RATE_MILLIHZ;
++    while (track->mResamplePos >= 1.0) {
++        track->mResamplePos -= 1.0;
++        track->mPrevFrame[0] = track->mNextFrame[0];
++        track->mPrevFrame[1] = track->mNextFrame[1];
++        track->mHaveNext = track_read_frame(track);
++        if (!track->mHaveNext) {
++            break;
++        }
++    }
++    return SL_BOOLEAN_TRUE;
++}
++
+ /** \brief This is the track mixer: fill the specified 16-bit stereo PCM buffer */
+ 
+ void IOutputMixExt_FillBuffer(SLOutputMixExtItf self, void *pBuffer, SLuint32 size)
+@@ -225,98 +409,32 @@ void IOutputMixExt_FillBuffer(SLOutputMixExtItf self, void *pBuffer, SLuint32 si
+             }
+             summaries[channel] = summary;
+         }
+-        while (desired > 0) {
+-            unsigned actual = desired;
+-            if (track->mAvail < actual) {
+-                actual = track->mAvail;
+-            }
+-            // force actual to be a frame multiple
+-            if (actual > 0) {
+-                assert(NULL != track->mReader);
+-                stereo *mixBuffer = (stereo *) dstWriter;
+-                const stereo *source = (const stereo *) track->mReader;
+-                unsigned j;
+-                if (GAIN_MUTE != summaries[0] || GAIN_MUTE != summaries[1]) {
+-                    if (mixBufferHasData) {
+-                        // apply gain during add
+-                        if (GAIN_UNITY != summaries[0] || GAIN_UNITY != summaries[1]) {
+-                            for (j = 0; j < actual; j += sizeof(stereo), ++mixBuffer, ++source) {
+-                                mixBuffer->left += (short) (source->left * track->mGains[0]);
+-                                mixBuffer->right += (short) (source->right * track->mGains[1]);
+-                            }
+-                        // no gain adjustment needed, so do a simple add
+-                        } else {
+-                            for (j = 0; j < actual; j += sizeof(stereo), ++mixBuffer, ++source) {
+-                                mixBuffer->left += source->left;
+-                                mixBuffer->right += source->right;
+-                            }
+-                        }
+-                    } else {
+-                        // apply gain during copy
+-                        if (GAIN_UNITY != summaries[0] || GAIN_UNITY != summaries[1]) {
+-                            for (j = 0; j < actual; j += sizeof(stereo), ++mixBuffer, ++source) {
+-                                mixBuffer->left = (short) (source->left * track->mGains[0]);
+-                                mixBuffer->right = (short) (source->right * track->mGains[1]);
+-                            }
+-                        // no gain adjustment needed, so do a simple copy
+-                        } else {
+-                            memcpy(dstWriter, track->mReader, actual);
+-                        }
+-                    }
+-                    trackContributedToMix = SL_BOOLEAN_TRUE;
++        stereo *mixBuffer = (stereo *) dstWriter;
++        while (desired >= sizeof(stereo)) {
++            short frame[STEREO_CHANNELS];
++            if (!track_resample_frame(track, frame)) {
++                // underflow: clear out rest of partial buffer (NTH synthesize comfort noise)
++                if (!mixBufferHasData && trackContributedToMix) {
++                    memset(dstWriter, 0, desired);
+                 }
+-                dstWriter = (char *) dstWriter + actual;
+-                desired -= actual;
+-                track->mReader = (char *) track->mReader + actual;
+-                track->mAvail -= actual;
+-                if (track->mAvail == 0) {
+-                    IBufferQueue *bufferQueue = &track->mAudioPlayer->mBufferQueue;
+-                    interface_lock_exclusive(bufferQueue);
+-                    const BufferHeader *oldFront, *newFront, *rear;
+-                    oldFront = bufferQueue->mFront;
+-                    rear = bufferQueue->mRear;
+-                    // a buffer stays on queue while playing, so it better still be there
+-                    assert(oldFront != rear);
+-                    newFront = oldFront;
+-                    if (++newFront == &bufferQueue->mArray[bufferQueue->mNumBuffers + 1]) {
+-                        newFront = bufferQueue->mArray;
+-                    }
+-                    bufferQueue->mFront = (BufferHeader *) newFront;
+-                    assert(0 < bufferQueue->mState.count);
+-                    --bufferQueue->mState.count;
+-                    if (newFront != rear) {
+-                        // we don't acknowledge application requests between buffers
+-                        // within the same mixer frame
+-                        assert(0 < bufferQueue->mState.count);
+-                        track->mReader = newFront->mBuffer;
+-                        track->mAvail = newFront->mSize;
+-                    }
+-                    // else we would set play state to playable but not playing during next mixer
+-                    // frame if the queue is still empty at that time
+-                    ++bufferQueue->mState.playIndex;
+-                    slBufferQueueCallback callback = bufferQueue->mCallback;
+-                    void *context = bufferQueue->mContext;
+-                    interface_unlock_exclusive(bufferQueue);
+-                    // The callback function is called on each buffer completion
+-                    if (NULL != callback) {
+-                        (*callback)((SLBufferQueueItf) bufferQueue, context);
+-                        // Maybe it enqueued another buffer, or maybe it didn't.
+-                        // We will find out later during the next mixer frame.
+-                    }
+-                }
+-                // no lock, but safe because noone else updates this field
+-                track->mFramesMixed += actual >> 2;    // sizeof(short) * STEREO_CHANNELS
+-                continue;
+-            }
+-            // we need more data: desired > 0 but actual == 0
+-            if (track_check(track)) {
+-                continue;
++                track_reset_converter(track);
++                break;
+             }
+-            // underflow: clear out rest of partial buffer (NTH synthesize comfort noise)
+-            if (!mixBufferHasData && trackContributedToMix) {
+-                memset(dstWriter, 0, actual);
++            if (GAIN_MUTE != summaries[0] || GAIN_MUTE != summaries[1]) {
++                short left = (short) (frame[0] * gains[0]);
++                short right = (short) (frame[1] * gains[1]);
++                if (mixBufferHasData) {
++                    mixBuffer->left += left;
++                    mixBuffer->right += right;
++                } else {
++                    mixBuffer->left = left;
++                    mixBuffer->right = right;
++                }
++                trackContributedToMix = SL_BOOLEAN_TRUE;
+             }
+-            break;
++            ++mixBuffer;
++            dstWriter = (char *) dstWriter + sizeof(stereo);
++            desired -= sizeof(stereo);
+         }
+         if (trackContributedToMix) {
+             mixBufferHasData = SL_BOOLEAN_TRUE;
+@@ -359,15 +477,35 @@ SLresult IOutputMixExt_checkAudioPlayerSourceSink(CAudioPlayer *thiz)
+     // check the source for compatibility
+     switch (thiz->mDataSource.mLocator.mLocatorType) {
+     case SL_DATALOCATOR_BUFFERQUEUE:
+-#ifdef ANDROID
++#if defined(ANDROID) || defined(USE_ANDROID_COMPAT)
+     case SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE:
+ #endif
+         switch (thiz->mDataSource.mFormat.mFormatType) {
+         case SL_DATAFORMAT_PCM:
++        case SL_ANDROID_DATAFORMAT_PCM_EX:
+ #ifdef USE_SDL
+-            // SDL is hard-coded to 44.1 kHz, and there is no sample rate converter
+-            if (SL_SAMPLINGRATE_44_1 != thiz->mDataSource.mFormat.mPCM.samplesPerSec)
++            // The SDL mixer produces 44.1 kHz stereo, so the track reader converts
++            // the application's format to that.  Reject formats it cannot convert.
++            switch (thiz->mDataSource.mFormat.mPCM.numChannels) {
++            case 1:
++            case 2:
++                break;
++            default:
++                SL_LOGE("SDL output supports only mono or stereo, got %u channels",
++                        thiz->mDataSource.mFormat.mPCM.numChannels);
++                return SL_RESULT_CONTENT_UNSUPPORTED;
++            }
++            switch (thiz->mDataSource.mFormat.mPCM.containerSize) {
++            case 8:
++            case 16:
++            case 24:
++            case 32:
++                break;
++            default:
++                SL_LOGE("SDL output does not support %u-bit PCM containers",
++                        thiz->mDataSource.mFormat.mPCM.containerSize);
+                 return SL_RESULT_CONTENT_UNSUPPORTED;
++            }
+ #endif
+             break;
+         default:
+@@ -419,6 +557,17 @@ SLresult IOutputMixExt_checkAudioPlayerSourceSink(CAudioPlayer *thiz)
+     track->mGains[0] = 1.0f;
+     track->mGains[1] = 1.0f;
+     track->mFramesMixed = 0;
++    track->mSampleRateMilliHz = thiz->mDataSource.mFormat.mPCM.samplesPerSec;
++    track->mNumChannels = thiz->mDataSource.mFormat.mPCM.numChannels;
++    track->mContainerSize = thiz->mDataSource.mFormat.mPCM.containerSize;
++    track->mRepresentation = SL_ANDROID_PCM_REPRESENTATION_SIGNED_INT;
++    if (SL_ANDROID_DATAFORMAT_PCM_EX == thiz->mDataSource.mFormat.mFormatType) {
++        track->mRepresentation = thiz->mDataSource.mFormat.mPCMEx.representation;
++    } else if (8 == track->mContainerSize) {
++        track->mRepresentation = SL_ANDROID_PCM_REPRESENTATION_UNSIGNED_INT;
++    }
++    track->mFrameBytes = track->mNumChannels * track->mContainerSize / 8;
++    track_reset_converter(track);
+     return SL_RESULT_SUCCESS;
+ }
+ 
+diff --git a/src/itf/IPlay.cpp b/src/itf/IPlay.cpp
+index 3dcffcd..d9ae96e 100644
+--- a/src/itf/IPlay.cpp
++++ b/src/itf/IPlay.cpp
+@@ -41,6 +41,9 @@ static SLresult IPlay_SetPlayState(SLPlayItf self, SLuint32 state)
+ #ifdef USE_OUTPUTMIXEXT
+           for (;; interface_cond_wait(thiz)) {
+ 
++            // The mixer may have completed a transition while we were waiting.
++            oldState = thiz->mState;
++
+             // We are comparing the old state (left) vs. new state (right).
+             // Note that the old state is 3 bits wide, but new state is only 2 bits wide.
+             // That is why the old state is on the left and new state is on the right.
+diff --git a/src/objects/CAudioPlayer.cpp b/src/objects/CAudioPlayer.cpp
+index dcad95a..a4e9361 100644
+--- a/src/objects/CAudioPlayer.cpp
++++ b/src/objects/CAudioPlayer.cpp
+@@ -89,7 +89,7 @@ predestroy_t CAudioPlayer_PreDestroy(void *self)
+     // Request the mixer thread to unlink this audio player's track
+     thiz->mDestroyRequested = true;
+     while (thiz->mDestroyRequested) {
+-        object_cond_wait(self);
++        object_cond_wait(static_cast<IObject*>(self));
+     }
+     // Mixer thread has acknowledged the request
+ #endif
+diff --git a/src/sles.cpp b/src/sles.cpp
+index 6b393dc..8d0594d 100644
+--- a/src/sles.cpp
++++ b/src/sles.cpp
+@@ -366,6 +366,18 @@ extern bool
+ #endif
+ 
+ #ifndef ANDROID
++#define IAndroidAcousticEchoCancellation_init NULL
++#define IAndroidAcousticEchoCancellation_deinit NULL
++#define IAndroidAcousticEchoCancellation_Expose NULL
++#define IAndroidAutomaticGainControl_init NULL
++#define IAndroidAutomaticGainControl_deinit NULL
++#define IAndroidAutomaticGainControl_Expose NULL
++#define IAndroidNoiseSuppression_init NULL
++#define IAndroidNoiseSuppression_deinit NULL
++#define IAndroidNoiseSuppression_Expose NULL
++#define IVideoDecoderCapabilities_init NULL
++#define IVideoDecoderCapabilities_deinit NULL
++#define IVideoDecoderCapabilities_expose NULL
+ #define IAndroidConfiguration_init        NULL
+ #define IAndroidConfiguration_deinit      NULL
+ #define IAndroidEffect_init               NULL

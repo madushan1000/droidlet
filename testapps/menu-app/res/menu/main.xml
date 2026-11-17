@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_lines"
+        android:title="Lines"
+        android:checkable="true"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_coordinates"
+        android:title="Coordinates"
+        android:checkable="true"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/action_rings"
+        android:title="Rings"
+        android:checkable="true"
+        android:showAsAction="never" />
+</menu>
