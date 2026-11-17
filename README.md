@@ -37,6 +37,8 @@ Install required packages.
    libgif-dev \
    libsqlite3-dev \
    libjsoncpp-dev \
+   libsdl1.2-dev \
+   libsndfile1-dev \
    ninja-build \
 ```
 
