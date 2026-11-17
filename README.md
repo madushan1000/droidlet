@@ -79,10 +79,10 @@ ninja -C builddir install
 
 ## Running an app
 
-from the source root
+from the source root, apk path must be an absolute path.
 
 ```bash
-./inst/bin/run_apk.sh <apk>
+./inst/bin/run_apk.sh $PWD/<apk>
 ```
 
 ## Attention
