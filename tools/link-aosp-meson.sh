@@ -83,4 +83,6 @@ else
     echo "warning: $WORKSPACE/.repo/project.list not found; skipping project meson files" >&2
 fi
 
+rm $WORKSPACE/droidlet/.git/info/exclude
+
 echo "meson files linked"
