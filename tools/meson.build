@@ -4,17 +4,6 @@ gen_aconfig_cpp_stubs = find_program('gen_aconfig_cpp_stubs.py', dirs: meson.cur
 
 gen_aconfig_java_stubs = find_program('gen_aconfig_java_stubs.py', dirs: meson.current_source_dir())
 
-
-#aconfig = find_program(
-#  'aconfig.sh',
-#  dirs: [meson.project_source_root() / 'meson_tools'],
-#)
-#
-#aconfig_java = find_program(
-#  'aconfig_java.sh',
-#  dirs: [meson.project_source_root() / 'meson_tools'],
-#)
-
 operator_srcs_gen = generator(
   python,
   capture: true,
@@ -24,4 +13,10 @@ operator_srcs_gen = generator(
     '@EXTRA_ARGS@',
     '@INPUT@',
   ],
+)
+
+install_data(
+  'run_apk.sh',
+  install_dir: 'bin',
+  install_mode: 'rwxr-xr-x'
 )
