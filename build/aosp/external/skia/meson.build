@@ -929,6 +929,7 @@ libskia_includes = include_directories(
   'include/private',
   'vma_android/include',
   'modules/skcms',
+  'include/third_party/vulkan',
 )
 
 libskia = shared_library(
@@ -952,6 +953,8 @@ libskia = shared_library(
     '-mavx',
     '-DSKCMS_DISABLE_SKX=1',
     '-DSKCMS_DISABLE_HSW=1',
+    '-DSK_USE_INTERNAL_VULKAN_HEADERS',
+    #'-DVK_API_VERSION_1_4=0x00405000'
   ],
   dependencies: [
     liblog_dep,

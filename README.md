@@ -6,7 +6,7 @@ It's architecturally very similar to [ATL](https://gitlab.com/android_translatio
 
 ## Building
 
-Currently only supported on TUXEDO OS 24.04 and Ubuntu 26.04+. Building on Ubuntu 24.04 is not supported because android-17 rquires vulkan-1.4.
+Only tested on ubuntu 24.04+. Probably will work on other linux distros too.
 
 Install required packages.
 
@@ -16,7 +16,7 @@ Install required packages.
    cmake \
    ccache \
    libzstd-dev \
-   libtinlyxml2-dev \
+   libtinyxml2-dev \
    libtinyxml-dev \
    libfmt-dev \
    liblz4-dev \
@@ -39,7 +39,21 @@ Install required packages.
    libjsoncpp-dev \
    libsdl1.2-dev \
    libsndfile1-dev \
+   libelf-dev \
+   libunwind-dev \
+   libbsd-dev \
+   libwayland-dev \
+   libexpat-dev \
+   libsdl-dev \
+   libsndfile-dev \
+   libavformat-dev \
+   libswscale-dev \
+   libcap-dev \
    ninja-build \
+   flatbuffers-compiler \
+   zip \
+   unzip \
+   wayland-protocols \
 ```
 
 Get the sources

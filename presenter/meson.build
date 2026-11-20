@@ -27,10 +27,10 @@ presenter_deps = [
 presenter_cpp_args = ['-std=c++20']
 presenter_generated = []
 
-wayland_client_dep = dependency('wayland-client', required: false)
-wayland_scanner = find_program('wayland-scanner', required: false)
-wayland_protocols_dep = dependency('wayland-protocols', required: false)
-xkbcommon_dep = dependency('xkbcommon', required: false)
+wayland_client_dep = dependency('wayland-client')
+wayland_scanner = find_program('wayland-scanner')
+wayland_protocols_dep = dependency('wayland-protocols')
+xkbcommon_dep = dependency('xkbcommon')
 
 if wayland_client_dep.found() and wayland_scanner.found() and wayland_protocols_dep.found()
   wayland_protocols_dir = wayland_protocols_dep.get_variable(pkgconfig: 'pkgdatadir')
