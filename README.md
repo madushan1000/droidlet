@@ -103,7 +103,8 @@ from the source root, apk path must be an absolute path.
 
 ## Attention
 Except for the meson build definitions, which I mostly wrote by hand, all code in this repo is written by DeepSeek v4.1 flash. Because I hate writing C++ and Java.
-And also note that there is no sandbox for the apps that expect/depend on it. Any app can read other apps data, they all live under your user. Use a proper sandboxing tool like bubblewrap.
+
+Also note that there is no sandbox for the apps that expect/depend on it. Any app can read other apps data, they all live under your user. Use a proper sandboxing tool like bubblewrap.
 
 ## LICENSE
 Everything in this repo is under AGPLv3, other than a few files copied from AOSP.
